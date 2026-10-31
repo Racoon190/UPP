@@ -58,7 +58,7 @@
 | `runtime/server.mjs` | 无直接对应；MCP 用 `command/args` 指过去；CLI 用 `clis` 的 `node-cli.entry` | 插件包内 | P0/P1 |
 | MCP server | Gateway 自定义服务器；载荷 `{"mcpServers":{…}}` | 经 `accio-mcp-cli server add` 写入 | **P0，需应用内执行** |
 | `subagents/<id>/prompt.md` | 插件子代理，声明 + 目录双重确认 | 插件包内 | ✅ 已生成（`generate` 写 `subAgents[]` + `prompt.md`） |
-| `renderers`（P1.4 试点） | SKILL.md frontmatter `renderers: {<id>:{description,app}}` + 单文件 `app/index.html`，经 slot 注入 `:::slot[...]` 后以 `skill-app://app/` iframe 呈现 | 技能目录 | **已生成并落盘（`accio.ui` 断言）；真正渲染需应用内会话触发** |
+| `renderers`（P1.4 试点） | SKILL.md frontmatter `renderers: {<id>:{description,app}}` + 单文件 `app/index.html`，经 slot 注入 `:::slot[...]` 后以 `skill-app://app/` iframe 呈现 | 技能目录 | **已实测渲染（2026-10-31 截图）；握手协议见下** |
 | RPA（`rpaScriptAssets`） | 绑定 Accio 运行时与 allowedHosts | 插件包内 | **P2，不承诺** |
 
 **最小可安装产物（两种落地方式）**
@@ -90,6 +90,19 @@ hello-upp/
 | `runtime.entry` | `clis/clis.json` 的 `source.entry`（`node-cli`，`moduleFormat: "esm"`）与 MCP `args[0]` |
 | `capabilities.skills` | `skills/` 自动扫描，**无需**在 plugin.json 列出 |
 | `permissions` | 无落点；Accio 有 4 态策略（allow/ask/ask_once/deny）但由宿主侧管理 |
+
+**Renderer iframe 握手协议（实测，Accio 0.36.2）**
+
+slot 注入后宿主以 `skill-app://app/<plugin>/.../app/index.html` 加载面板，双向 postMessage 必须严格按下列形状，否则面板**能画出来但 20 秒后判 `handshake_timeout`**（`sdk.log` 中 `renderer_app_lifecycle` / `handshake_timeout` / `iframe_render failure`）：
+
+| 方向 | 消息 | 说明 |
+| --- | --- | --- |
+| host → iframe | `{type:'ui/initialize', payload, peerRenderers, isDark, context}` | 收到 `ui/ready` 后才发；`payload` 里带 slot payload |
+| host → iframe | `{type:'ui/theme', isDark}` | 主题变化 |
+| iframe → host | `{type:'ui/ready'}` | 置 `iframeReady`，触发宿主发 `ui/initialize` |
+| iframe → host | `{type:'ui/resize', height:<px>}` | **`height` 必须在顶层**；宿主收到才把握手标记成功（`resizeAcked`）；要求 `0 < height ≤ 50000` |
+
+UPP 生成器强制这三条：`ui` 校验要求入口 HTML 同时出现 `ui/ready`、`ui/resize`（顶层 `height` 形式）、以及监听 `ui/initialize`（`ui.entry.ready` / `ui.entry.resize` / `ui.entry.initialize`）。示例面板还包了 `ResizeObserver` 以在内容变化时重发高度。
 
 ---
 

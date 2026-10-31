@@ -374,8 +374,11 @@ function validateManifest(pkg, m) {
       checks.push(fail('ui.entry', `missing ${ui.entry}`));
     } else {
       const html = readFileSync(uiFile, 'utf8');
-      checks.push(/ui\/resize/.test(html) ? ok('ui.entry.resize', 'ui/resize handshake') : fail('ui.entry.resize', 'entry HTML must postMessage ui/resize'));
+      // Accio host reads `data.height` at TOP level and only then acks the handshake
+      // (nested {data:{height}} renders the panel but ends in handshake_timeout).
+      checks.push(/ui\/resize['"]\s*,\s*height\s*:/.test(html) ? ok('ui.entry.resize', 'ui/resize with top-level height') : fail('ui.entry.resize', 'entry HTML must postMessage {type:"ui/resize", height:<px>} (height top-level)'));
       checks.push(/ui\/ready/.test(html) ? ok('ui.entry.ready', 'ui/ready handshake') : fail('ui.entry.ready', 'entry HTML must postMessage ui/ready'));
+      checks.push(/ui\/initialize/.test(html) ? ok('ui.entry.initialize', 'listens for ui/initialize') : fail('ui.entry.initialize', 'entry HTML must handle the host ui/initialize message'));
       if (/\b(?:src|href)\s*=\s*["']https?:/i.test(html)) checks.push(fail('ui.entry.remote', 'no remote scripts/styles (P2-1)'));
       if (/fetch\(\s*["']skill-app:\/\/app\//i.test(html)) checks.push(fail('ui.entry.shared-origin', 'must not fetch skill-app://app (shared origin, no CSP)'));
     }

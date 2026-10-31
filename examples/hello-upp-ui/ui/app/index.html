@@ -15,24 +15,35 @@
     <h1>Hello UPP</h1>
     <p id="status">single-file panel, no build, no network</p>
     <script>
-      // P2-1 safety contract: no remote assets, no skill-app:// fetch, parent owns the iframe.
-      function post(type, data) {
-        parent.postMessage({ type, data: data || {} }, '*');
-      }
-      function report() {
-        post('ui/resize', { height: document.documentElement.scrollHeight });
-        post('ui/ready', { skillId: 'hello-upp-panel' });
-      }
-      window.addEventListener('message', function (event) {
-        var msg = event.data || {};
-        if (msg.type === 'ui/init') {
-          var name = (msg.data && msg.data.pluginName) || 'Hello UPP';
-          document.title = name;
-          document.getElementById('status').textContent = name + ' v1.0.0 ready';
-          report();
+      // Accio slot-iframe protocol (verified against app.asar):
+      //   host -> iframe: {type:'ui/initialize', payload, peerRenderers, isDark, context}
+      //                   {type:'ui/theme', isDark}
+      //   iframe -> host: {type:'ui/ready'}  (sets iframeReady, host then sends ui/initialize)
+      //                   {type:'ui/resize', height:<number>}  <- height MUST be top-level
+      // The host only marks iframe_render success after receiving ui/resize.
+      (function () {
+        function post(msg) { parent.postMessage(msg, '*'); }
+        function sendResize() {
+          var h = Math.max(document.documentElement.scrollHeight, document.body.scrollHeight);
+          if (h > 0) post({ type: 'ui/resize', height: h });
         }
-      });
-      report();
+        function ready() { post({ type: 'ui/ready' }); sendResize(); }
+        window.addEventListener('message', function (event) {
+          var msg = event.data || {};
+          if (msg.type === 'ui/initialize') {
+            var p = msg.payload || {};
+            var slotPayload = (p.slot && p.slot.payload) || {};
+            var name = p.title || slotPayload.name || 'Hello UPP';
+            document.title = name;
+            document.getElementById('status').textContent = name + ' · rendered by Accio skill-app';
+            ready();
+          } else if (msg.type === 'ui/theme') {
+            document.documentElement.dataset.theme = msg.isDark ? 'dark' : 'light';
+          }
+        });
+        if (window.ResizeObserver) new ResizeObserver(sendResize).observe(document.body);
+        ready();
+      })();
     </script>
   </body>
 </html>

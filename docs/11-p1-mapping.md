@@ -159,10 +159,10 @@ MCP 工具调用回包带宿主标记：
 
 | `upp.json` 字段 | 三端形态 | 实测 |
 | --- | --- | --- |
-| `ui` | Accio：技能 `SKILL.md` 的 `renderers: {<id>:{description,app}}` + `app/index.html` + `scripts/show.mjs`（输出 slot JSON）；DSH/WorkBuddy：同一面板目录作为普通技能镜像 | DSH 技能目录出现 `hello-upp-panel`；Accio 侧技能落盘 + `skills_config` 已登记，renderer 解析未见日志 |
+| `ui` | Accio：技能 `SKILL.md` 的 `renderers: {<id>:{description,app}}` + `app/index.html` + `scripts/show.mjs`（输出 slot JSON）；DSH/WorkBuddy：同一面板目录作为普通技能镜像 | Accio **已实测渲染**（截图）；握手需 `ui/ready` + **顶层 `height`** 的 `ui/resize` + 监听 `ui/initialize`，否则 20s `handshake_timeout`；DSH 技能目录出现 `hello-upp-panel` |
 | `hooks`（仅 WorkBuddy） | `hooks/hooks.json`（`{hooks:{<Event>:[{matcher?,hooks:[{type:'command',command,timeout}]}]}}`）+ `hooks/scripts/<id>.mjs`；`plugin.json.hooks = "./hooks/hooks.json"` | 脚本直接执行 exit 0、日志写入 `%LOCALAPPDATA%` 数据目录；`plugin validate` valid；桌面端未见 `Loaded hooks configuration from extension:` 的 hello-upp 行 |
 | `ui.dsh`（P1.4 补充） | DSH 原生面板：空壳 `index.js` + 手写 classic-script `client.js`（`window.__ModuleLoader__.load`，注册 `conversation.input.dock`，渲染 composer 上方卡片）+ `package.json.dsh.client` + `exports["./client"]` + patch 自插入包行 | `examples/hello-upp-ui` 14 项静态断言全绿、`node --check` 通过；**已安装并实测**：DSH 重启后 slot inspector 显示 `hello-ui-panel`（order 50、active） |
-| 校验 | `validate`：ui 的 renderer/skill kebab、entry 存在、HTML 必须含 `ui/ready`+`ui/resize`、禁远程与 `skill-app://app` 直取、capability 一致；hooks 事件白名单、`mode==='observe'`、timeout ≤ 60、capability 一致 | `verify` 28 项 failed 0（含 `accio.ui.renderer`、`workbuddy.hooks.manifest`） |
+| 校验 | `validate`：ui 的 renderer/skill kebab、entry 存在、HTML 必须同时含 `ui/ready`、顶层 `height` 的 `ui/resize`、监听 `ui/initialize`，禁远程与 `skill-app://app` 直取、capability 一致；hooks 事件白名单、`mode==='observe'`、timeout ≤ 60、capability 一致 | `verify` 28 项 failed 0（含 `accio.ui.renderer`、`workbuddy.hooks.manifest`）；`run-all` 12/12 |
 
 **为什么不承诺更多**：Accio slot 需要会话内脚本输出触发；DSH client-UI 插槽需要 React 插件包与 `ctx.slots`，无零构建路径；WorkBuddy 原生 UI 无公开 API。详见 [06 §6.6](06-toolchain.md) 与 [10 §4](10-roadmap.md)。
 
