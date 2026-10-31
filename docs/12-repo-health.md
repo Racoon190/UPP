@@ -74,7 +74,10 @@ node tools/upp.mjs pack --pkg examples/hello-upp --out dist/hello-upp-1.0.0.upp
 
 | 产物 | 大小 | 说明 |
 |---|---|---|
-| `dist/hello-upp-1.0.0.upp` | 14,885 B | 20 条目，三端同包 |
+| `dist/doc-toolkit-0.2.0.upp` | 15,201 B | 签名包（ed25519 指纹 `0f012f6363b1eb1b`），含 PDF/PPTX |
+| `dist/sheet-toolkit-0.1.0.upp` | 14,069 B | 签名包，xlsx/csv 概览/清洗/汇总 |
+| `dist/log-toolkit-0.1.0.upp` | 11,690 B | 签名包，日志扫描/grep/窗口 |
+| `dist/hello-upp-1.0.0.upp` | 14,885 B | 框架示例包（三端同包） |
 | `dist/hello-upp-1.0.0.upp.sha256` | 86 B | `<hash>  <file>` |
 | `dist/hello-upp-1.0.0.upp.sig.json` | 485 B | ed25519，指纹 `91bc497df70128c8` |
 | `dist/offline-hello-upp-1.0.0.zip` | 48,205 B | 含 `tools/upp.mjs`、`install.cmd/sh`、哈希/签名 |
