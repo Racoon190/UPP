@@ -242,6 +242,19 @@ description: 返回一句问候并证明 UPP 插件已在该宿主上安装成�
 
 ---
 
+## 10.5 本地优先与按需调用（成本契约）
+
+目标是"可复用的能力只在本机实现一次，宿主按需调用"，避免为省事把逻辑塞进模型上下文或每端重写：
+
+1. **业务逻辑在本地进程**：`runtime/server.mjs` 由宿主按需 spawn（MCP stdio 长连接缓存；CLI 每次调用即用即退），默认零网络。出网必须显式 `permissions.network=true` + `networkHosts`。
+2. **一份实现、三端复用**：同一 `runtime` 入口同时提供 MCP 与 CLI，DSH/WorkBuddy/Accio 通过各自通道调用同一份代码，不复制业务逻辑。
+3. **模型侧只暴露最小可发现面**：工具 `description` 一句话、`inputSchema` 只列必要字段；重逻辑放代码或技能脚本里，**调用时才进入上下文**；技能按渐进披露组织（`SKILL.md` 只放入口，细节进 `references/`）。
+4. **插件执行路径不含 LLM**：唯一可选的模型调用是 `upp import --analyze --polish`（默认关闭，必须显式提供 `UPP_LLM_*` 环境变量；`--strict-polish` 缺配置即失败）。
+5. **安装/校验/打包全离线**：`upp` 是单文件零依赖；不联网、不装包、不下载。`pack`/`bundle-offline`/`verify-signature` 都在本机完成。
+6. **可度量**：`upp.json.tokenBudget.alwaysLoadedBytes` 建议 ≤ 2048（工具+技能描述常驻部分），`upp validate` 会在超限时给出检查项。
+
+---
+
 ## 11. 数据目录
 
 - 可写数据只允许在 `UPP_DATA`（安装器创建：`<hostData>/upp-data/<id>/`）。

@@ -411,6 +411,25 @@ function validateManifest(pkg, m) {
       ? ok('permissions.minimal', 'network=false, filesystem=none, shell=false')
       : ok('permissions.extended', JSON.stringify(perm)),
   );
+  // Cost contract: the bytes a host must always keep in context (tool surface + skill index).
+  const budget = Number(m.tokenBudget?.alwaysLoadedBytes ?? 2048);
+  const toolSurface = readJson(join(pkg, m.runtime.manifest), {})?.tools ?? [];
+  const toolBytes = Buffer.byteLength(
+    JSON.stringify(toolSurface.map((t) => ({ name: t.name, description: t.description, inputSchema: t.inputSchema }))),
+  );
+  let skillBytes = 0;
+  for (const s of m.skills) {
+    const fm = splitFrontmatter(readFileSync(join(pkg, s.path, 'SKILL.md'), 'utf8')).fm;
+    const name = /^name:\s*(.+)$/m.exec(fm)?.[1] ?? s.id;
+    const description = /^description:\s*(.+)$/m.exec(fm)?.[1] ?? '';
+    skillBytes += Buffer.byteLength(`${name}\n${description}\n`);
+  }
+  const alwaysBytes = toolBytes + skillBytes;
+  checks.push(
+    alwaysBytes <= budget
+      ? ok('tokenBudget', `${alwaysBytes}/${budget} B always-loaded`)
+      : fail('tokenBudget', `${alwaysBytes} B > tokenBudget.alwaysLoadedBytes ${budget} B`),
+  );
   return checks;
 }
 
