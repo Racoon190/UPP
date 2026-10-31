@@ -11,7 +11,7 @@
 |---|---|
 | 分支 | `main` |
 | 首次提交 | `119f5a7ac95213427615d05900ba52fd4bdbbdaf` |
-| 当前 HEAD | `d529048`（团队插件 + PDF/PPTX；本页数字以该提交为准） |
+| 基线提交 | `dc1cab8`（doc-toolkit）；本页随团队插件提交更新，HEAD 以 `git log -1` 为准 |
 | 标签 | `upp-v1.0.0`（annotated，指向绿色 CI 提交 `cc23a56`） |
 | 跟踪文件 | 142 个；工作区 1.9 MB；`.git` 798 KB |
 | 换行 | `.gitattributes`：`* text=auto eol=lf`，`*.cmd/*.bat eol=crlf` |
