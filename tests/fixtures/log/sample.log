@@ -1,0 +1,30 @@
+2026-11-01T10:00:00.000Z [INFO] service start pid=1001
+2026-11-01T10:00:01.000Z [INFO] config loaded from app.json
+2026-11-01T10:00:02.000Z [DEBUG] cache warmup begin
+2026-11-01T10:00:03.000Z [DEBUG] cache warmup done items=32
+2026-11-01T10:00:04.000Z [INFO] listening on port 8080
+2026-11-01T10:00:05.000Z [WARN] slow query detected in 120 ms
+2026-11-01T10:00:06.000Z [INFO] GET /health 200 3ms
+2026-11-01T10:00:07.000Z [INFO] GET /api/orders 200 45ms
+2026-11-01T10:00:08.000Z [ERROR] failed to connect to upstream db timeout after 3000 ms
+2026-11-01T10:00:09.000Z [WARN] retrying upstream connection attempt=1
+2026-11-01T10:00:10.000Z [ERROR] failed to connect to upstream db timeout after 3000 ms
+2026-11-01T10:00:11.000Z [信息] 缓存命中，使用降级数据
+2026-11-01T10:00:12.000Z [DEBUG] retry queue size=0
+2026-11-01T10:00:13.000Z [WARN] upstream latency spike p99=2400 ms
+2026-11-01T10:00:14.000Z [INFO] GET /api/users 200 12ms
+2026-11-01T10:00:15.000Z [ERROR] payment gateway rejected order=8821 code=E42
+2026-11-01T10:00:16.000Z [INFO] POST /api/orders 201 88ms
+2026-11-01T10:00:17.000Z [DEBUG] db pool stats active=4 idle=6
+2026-11-01T10:00:18.000Z [WARN] disk usage 81 percent on /var
+2026-11-01T10:00:19.000Z [INFO] 警告：队列积压已恢复正常
+2026-11-01T10:00:20.000Z response with no level marker
+2026-11-01T10:00:21.000Z [INFO] GET /api/orders/8821 500 210ms
+2026-11-01T10:00:22.000Z [ERROR] unhandled exception in worker-3 at 0xdeadbeef
+2026-11-01T10:00:23.000Z [INFO] worker-3 restart scheduled
+2026-11-01T10:00:24.000Z [DEBUG] heartbeat tick
+2026-11-01T10:00:25.000Z [WARNING] rate limit hit client=10.0.0.7
+2026-11-01T10:00:26.000Z [INFO] GET /healthz 200 2ms
+2026-11-01T10:00:27.000Z [ERROR] background job failed after 3 attempts
+2026-11-01T10:00:28.000Z [FATAL] out of memory, aborting
+2026-11-01T10:00:29.000Z [INFO] shutdown complete

@@ -2,8 +2,8 @@
   "uppVersion": "1.0",
   "id": "doc-toolkit",
   "name": "Doc Toolkit",
-  "version": "0.1.0",
-  "description": "Local-first document and spreadsheet inspector: digest a .docx/.xlsx/.csv/.md/.html file, then pull bounded windows on demand instead of loading whole files into the conversation.",
+  "version": "0.2.0",
+  "description": "Local-first document toolkit: digest a .docx/.xlsx/.pptx/.pdf/.csv/.md/.html file, then pull bounded windows (text / rows / slides) on demand instead of loading whole files into the conversation.",
   "license": "MIT",
   "runtime": {
     "kind": "node",
@@ -33,7 +33,7 @@
     }
   },
   "tokenBudget": {
-    "alwaysLoadedBytes": 1600,
-    "note": "Two tools only. Heavy parsing stays inside the local runtime; callers pay for a digest (~1 KB) instead of the file."
+    "alwaysLoadedBytes": 1800,
+    "note": "Two tools only. Heavy parsing (docx/xlsx/pptx/pdf) stays inside the local runtime; callers pay for a digest (~1 KB) instead of the file."
   }
 }

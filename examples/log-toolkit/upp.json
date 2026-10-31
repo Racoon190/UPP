@@ -1,0 +1,38 @@
+{
+  "uppVersion": "1.0",
+  "id": "log-toolkit",
+  "name": "Log Toolkit",
+  "version": "0.1.0",
+  "description": "Local-first log inspector: scan level counts and top messages, grep by pattern with context, then read an exact line window instead of pasting whole logs.",
+  "license": "MIT",
+  "runtime": {
+    "kind": "node",
+    "entry": "runtime/server.mjs",
+    "manifest": "runtime/tools.json",
+    "minNode": "18"
+  },
+  "capabilities": [
+    "tools",
+    "skills"
+  ],
+  "permissions": {
+    "network": false,
+    "filesystem": "workspace",
+    "shell": false
+  },
+  "hosts": {
+    "dsh": {
+      "serverName": "log-toolkit"
+    },
+    "workbuddy": {
+      "serverName": "log-toolkit"
+    },
+    "accio": {
+      "serverName": "log-toolkit"
+    }
+  },
+  "tokenBudget": {
+    "alwaysLoadedBytes": 1600,
+    "note": "Three tools only. All log content stays inside the local runtime; callers pay for a level summary or a bounded window, never the whole file."
+  }
+}

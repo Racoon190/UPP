@@ -1,0 +1,115 @@
+{
+  "serverName": "sheet-toolkit",
+  "version": "0.1.0",
+  "tools": [
+    {
+      "name": "sheet_profile",
+      "description": "Profile a local xlsx/csv before touching it: sheets, rows, cols, inferred column types, duplicate counts and a bounded sample. Call this first.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "sheet": {
+            "type": "string"
+          },
+          "sampleRows": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 20
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "sheet_clean",
+      "description": "Clean a sheet locally: trim padded cells, drop empty or duplicate rows. Returns a bounded preview plus before/after counters.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "sheet": {
+            "type": "string"
+          },
+          "dropEmptyRows": {
+            "type": "boolean"
+          },
+          "trim": {
+            "type": "boolean"
+          },
+          "dropDuplicates": {
+            "type": "boolean"
+          },
+          "maxRows": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 200
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "sheet_summary",
+      "description": "Group a sheet by one column and aggregate numeric columns (sum/avg/min/max/count) into bounded rows plus totals.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "sheet": {
+            "type": "string"
+          },
+          "groupBy": {
+            "type": "string"
+          },
+          "values": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "maxItems": 5
+          },
+          "aggs": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "sum",
+                "avg",
+                "min",
+                "max",
+                "count"
+              ]
+            },
+            "minItems": 1,
+            "maxItems": 5
+          },
+          "topN": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50
+          }
+        },
+        "required": [
+          "path",
+          "groupBy",
+          "values"
+        ],
+        "additionalProperties": false
+      }
+    }
+  ]
+}

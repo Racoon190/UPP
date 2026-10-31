@@ -1,0 +1,19 @@
+{
+  "sheet_profile": {
+    "path": "../../tests/fixtures/sheet/sample.xlsx",
+    "sheet": "Data",
+    "sampleRows": 3
+  },
+  "sheet_clean": {
+    "path": "../../tests/fixtures/sheet/sample.xlsx",
+    "sheet": "Data",
+    "maxRows": 5
+  },
+  "sheet_summary": {
+    "path": "../../tests/fixtures/sheet/sample.xlsx",
+    "sheet": "Data",
+    "groupBy": "Region",
+    "values": ["Revenue"],
+    "topN": 3
+  }
+}

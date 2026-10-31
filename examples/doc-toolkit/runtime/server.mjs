@@ -15,7 +15,7 @@
  */
 import { readFileSync, statSync } from 'node:fs';
 import { basename, dirname, extname, isAbsolute, resolve } from 'node:path';
-import { inflateRawSync } from 'node:zlib';
+import { inflateRawSync, inflateSync } from 'node:zlib';
 import { createInterface } from 'node:readline';
 import { fileURLToPath } from 'node:url';
 
@@ -299,6 +299,261 @@ function htmlToText(html) {
     .trim();
 }
 
+
+// ------------------------------------------------------------------ pptx
+function normalizePart(target) {
+  const t = String(target).replace(/^\/+/, '');
+  return t.startsWith('ppt/') ? t : `ppt/${t}`;
+}
+
+function pptxSlides(buf) {
+  const zip = readZip(buf);
+  const pres = zip.get('ppt/presentation.xml')?.toString('utf8') ?? '';
+  const rels = zip.get('ppt/_rels/presentation.xml.rels')?.toString('utf8') ?? '';
+  const relMap = new Map();
+  for (const rel of rels.matchAll(/<Relationship\b[^>]*\/?>/g)) {
+    const id = /Id="([^"]+)"/.exec(rel[0])?.[1];
+    const target = /Target="([^"]+)"/.exec(rel[0])?.[1];
+    if (id && target) relMap.set(id, normalizePart(target));
+  }
+  const order = [];
+  for (const m of pres.matchAll(/<p:sldId\b[^>]*r:id="([^"]+)"/g)) {
+    const part = relMap.get(m[1]);
+    if (part) order.push(part);
+  }
+  if (!order.length) {
+    const numeric = [...zip.keys()]
+      .filter((name) => /^ppt\/slides\/slide\d+\.xml$/.test(name))
+      .sort((a, b) => Number(/(\d+)\.xml$/.exec(a)[1]) - Number(/(\d+)\.xml$/.exec(b)[1]));
+    order.push(...numeric);
+  }
+  const slides = [];
+  order.forEach((part, i) => {
+    const xml = zip.get(part)?.toString('utf8');
+    if (!xml) return;
+    const paragraphs = [];
+    for (const shape of xml.matchAll(/<p:sp\b[\s\S]*?<\/p:sp>/g)) {
+      const isTitle = /<p:ph\b[^>]*type="(?:title|ctrTitle)"/.test(shape[0]);
+      for (const p of shape[0].matchAll(/<a:p\b[^>]*>([\s\S]*?)<\/a:p>/g)) {
+        const runs = [...p[1].matchAll(/<a:t\b[^>]*>([\s\S]*?)<\/a:t>/g)].map((m) => decodeXml(m[1])).join('');
+        if (runs.trim() || isTitle) paragraphs.push({ text: runs.trim(), title: isTitle });
+      }
+    }
+    const title = paragraphs.find((p) => p.title && p.text)?.text ?? '';
+    const text = paragraphs.map((p) => p.text).filter(Boolean).join('\n');
+    slides.push({ index: i + 1, part, title: title.slice(0, 160), text, chars: text.length });
+  });
+  return slides;
+}
+
+function pptxDigest(buf, sampleSlides) {
+  const slides = pptxSlides(buf);
+  const text = slides.map((s) => s.text).filter(Boolean).join('\n\n');
+  return {
+    kind: 'pptx',
+    slides: slides.length,
+    chars: text.length,
+    words: countWords(text),
+    titles: slides.map((s) => s.title).filter(Boolean).slice(0, 12),
+    sample: slides.slice(0, sampleSlides).map((s) => ({ index: s.index, title: s.title, chars: s.chars, head: s.text.slice(0, 240) })),
+    head: text.slice(0, 600),
+    text,
+  };
+}
+
+// ------------------------------------------------------------------ pdf
+function inflateAny(raw) {
+  for (const fn of [inflateSync, inflateRawSync]) {
+    try {
+      return fn(raw);
+    } catch {
+      /* try next */
+    }
+  }
+  return null;
+}
+
+/** Best-effort stream scan: enough for text-layer PDFs, never for scanned images. */
+function pdfStreams(buf) {
+  const raw = buf.toString('latin1');
+  const streams = [];
+  const re = /stream\r?\n/g;
+  let m;
+  while ((m = re.exec(raw))) {
+    const dataStart = m.index + m[0].length;
+    const end = raw.indexOf('endstream', dataStart);
+    if (end < 0) break;
+    const dictStart = Math.max(0, raw.lastIndexOf('<<', m.index));
+    const dict = raw.slice(dictStart, m.index);
+    let data = buf.subarray(dataStart, end);
+    if (data.length && data[data.length - 1] === 0x0a) data = data.subarray(0, data.length - 1);
+    if (data.length && data[data.length - 1] === 0x0d) data = data.subarray(0, data.length - 1);
+    re.lastIndex = end + 9;
+    if (/\/Subtype\s*\/Image/.test(dict)) continue;
+    const isFlate = /\/FlateDecode/.test(dict);
+    const decoded = isFlate ? inflateAny(data) : null;
+    if (decoded) streams.push({ dict, data: decoded });
+    else if (!isFlate) streams.push({ dict, data });
+  }
+  return streams;
+}
+
+function utf16FromHex(hex) {
+  const clean = hex.replace(/\s+/g, '');
+  let out = '';
+  for (let i = 0; i + 3 < clean.length + 1 && i + 4 <= clean.length; i += 4) {
+    out += String.fromCharCode(parseInt(clean.slice(i, i + 4), 16));
+  }
+  if (!out && clean.length === 2) out = String.fromCharCode(parseInt(clean, 16));
+  if (!out && clean.length === 4) out = String.fromCharCode(parseInt(clean, 16));
+  return out;
+}
+
+function pdfCMap(text) {
+  const map = new Map();
+  for (const block of text.matchAll(/beginbfchar([\s\S]*?)endbfchar/g)) {
+    for (const e of block[1].matchAll(/<([0-9A-Fa-f]+)>\s*<([0-9A-Fa-f]+)>/g)) {
+      map.set(parseInt(e[1], 16), utf16FromHex(e[2]));
+    }
+  }
+  for (const block of text.matchAll(/beginbfrange([\s\S]*?)endbfrange/g)) {
+    for (const e of block[1].matchAll(/<([0-9A-Fa-f]+)>\s*<([0-9A-Fa-f]+)>\s*(?:<([0-9A-Fa-f]+)>|\[([\s\S]*?)\])/g)) {
+      const lo = parseInt(e[1], 16);
+      const hi = parseInt(e[2], 16);
+      if (!Number.isFinite(lo) || !Number.isFinite(hi) || hi < lo) continue;
+      if (e[3]) {
+        const base = utf16FromHex(e[3]).codePointAt(0) ?? 0;
+        for (let c = lo; c <= hi && c - lo < 4096; c += 1) map.set(c, String.fromCodePoint(base + (c - lo)));
+      } else if (e[4]) {
+        const items = [...e[4].matchAll(/<([0-9A-Fa-f]+)>/g)].map((x) => utf16FromHex(x[1]));
+        items.forEach((ch, i) => {
+          if (lo + i <= hi) map.set(lo + i, ch);
+        });
+      }
+    }
+  }
+  return map;
+}
+
+function decodePdfLiteral(raw, cmap) {
+  const bytes = [];
+  for (let i = 0; i < raw.length; i += 1) {
+    const c = raw[i];
+    if (c !== '\\') {
+      bytes.push(raw.charCodeAt(i) & 0xff);
+      continue;
+    }
+    const next = raw[i + 1];
+    i += 1;
+    if (next === 'n') bytes.push(10);
+    else if (next === 'r') bytes.push(13);
+    else if (next === 't') bytes.push(9);
+    else if (next === 'b') bytes.push(8);
+    else if (next === 'f') bytes.push(12);
+    else if (next === '(' || next === ')' || next === '\\') bytes.push(next.charCodeAt(0));
+    else if (/[0-7]/.test(next)) {
+      let oct = next;
+      while (oct.length < 3 && /[0-7]/.test(raw[i + 1] ?? '')) {
+        i += 1;
+        oct += raw[i];
+      }
+      bytes.push(parseInt(oct, 8) & 0xff);
+    } else if (next === '\n') {
+      /* line continuation */
+    } else {
+      bytes.push((next ?? '').charCodeAt(0) & 0xff);
+    }
+  }
+  return decodePdfBytes(Buffer.from(bytes), cmap);
+}
+
+function decodePdfBytes(bytes, cmap) {
+  let out = '';
+  for (let i = 0; i < bytes.length; ) {
+    const two = i + 1 < bytes.length ? (bytes[i] << 8) | bytes[i + 1] : -1;
+    if (two >= 0 && cmap.has(two)) {
+      out += cmap.get(two);
+      i += 2;
+      continue;
+    }
+    if (cmap.has(bytes[i])) {
+      out += cmap.get(bytes[i]);
+      i += 1;
+      continue;
+    }
+    const b = bytes[i];
+    if (b === 9 || b === 10 || b === 13) out += ' ';
+    else if (b >= 32 && b < 127) out += String.fromCharCode(b);
+    i += 1;
+  }
+  return out;
+}
+
+function decodePdfHex(hex, cmap) {
+  const clean = hex.replace(/[^0-9A-Fa-f]/g, '');
+  const bytes = [];
+  for (let i = 0; i + 1 < clean.length; i += 2) bytes.push(parseInt(clean.slice(i, i + 2), 16));
+  return decodePdfBytes(Buffer.from(bytes), cmap);
+}
+
+function pdfText(content, cmap) {
+  const lines = content.toString('latin1').split(/\r?\n/);
+  const parts = [];
+  for (const line of lines) {
+    if (/\bBT\b/.test(line)) {
+      parts.push('\n');
+      continue;
+    }
+    const showsText = /\b(Tj|TJ)\b/.test(line) || /['"]\s*$/.test(line.trim());
+    if (showsText) {
+      let lineText = '';
+      for (const m of line.matchAll(/\(((?:\\.|[^\\()])*)\)/g)) lineText += decodePdfLiteral(m[1], cmap);
+      for (const m of line.matchAll(/<([0-9A-Fa-f\s]+)>/g)) lineText += decodePdfHex(m[1], cmap);
+      if (lineText) parts.push(lineText);
+      continue;
+    }
+    if (/\b(?:Td|TD|Tm)\b|\bT\*/.test(line)) parts.push('\n');
+  }
+  return parts
+    .join('')
+    .replace(/[ \t]{2,}/g, ' ')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+function pdfInfo(buf) {
+  const raw = buf.toString('latin1');
+  const streams = pdfStreams(buf);
+  const cmap = new Map();
+  for (const s of streams) {
+    if (/beginbfchar|beginbfrange/.test(s.data.toString('latin1'))) {
+      for (const [k, v] of pdfCMap(s.data.toString('latin1'))) cmap.set(k, v);
+    }
+  }
+  const contentStreams = streams.filter((s) => /\bBT\b/.test(s.data.toString('latin1')) && /\b(Tj|TJ)\b/.test(s.data.toString('latin1')));
+  const text = contentStreams.map((s) => pdfText(s.data, cmap)).filter(Boolean).join('\n\n');
+  const pages = (raw.match(/\/Type\s*\/Page[^s]/g) ?? []).length;
+  const producer = /\/Producer\s*\(([^)]{0,120})\)/.exec(raw)?.[1] ?? '';
+  const images = (raw.match(/\/Subtype\s*\/Image/g) ?? []).length;
+  return { pages, producer: producer.trim(), images, text, hasTextLayer: text.replace(/\s/g, '').length > 40 };
+}
+
+function pdfDigest(buf) {
+  const info = pdfInfo(buf);
+  return {
+    kind: 'pdf',
+    pages: info.pages,
+    images: info.images,
+    producer: info.producer,
+    chars: info.text.length,
+    words: countWords(info.text),
+    hasTextLayer: info.hasTextLayer,
+    head: info.text.slice(0, 600),
+    text: info.text,
+    note: info.hasTextLayer ? undefined : 'no extractable text layer (scanned PDF or CID font without ToUnicode); OCR is out of scope',
+  };
+}
+
 // ------------------------------------------------------------------ handlers
 function resolveFile(raw) {
   if (typeof raw !== 'string' || !raw.trim()) throw new UppError('INVALID_ARGS', 'path must be a non-empty string');
@@ -325,9 +580,11 @@ const HANDLERS = {
     if (ext === '.docx') info = docxDigest(buf);
     else if (ext === '.xlsx' || ext === '.xlsm') info = xlsxDigest(buf, sampleRows);
     else if (ext === '.csv') info = csvDigest(buf.toString('utf8'), sampleRows);
+    else if (ext === '.pptx') info = pptxDigest(buf, sampleRows);
+    else if (ext === '.pdf') info = pdfDigest(buf);
     else if (ext === '.html' || ext === '.htm') info = htmlDigest(buf.toString('utf8'));
     else if (['.md', '.markdown', '.txt', '.log', '.json', '.jsonl', '.yaml', '.yml'].includes(ext)) info = textDigest(buf.toString('utf8'));
-    else throw new UppError('INVALID_ARGS', `unsupported file type: ${ext || '(none)'} (docx/xlsx/csv/md/txt/html)`);
+    else throw new UppError('INVALID_ARGS', `unsupported file type: ${ext || '(none)'} (docx/xlsx/pptx/pdf/csv/md/txt/html)`);
     const data = { path, bytes, ...info };
     delete data.text;
     return { ...data, digestBytes: Buffer.byteLength(JSON.stringify(data)) };
@@ -372,6 +629,46 @@ const HANDLERS = {
     }
     let text = '';
     let kind = ext.replace('.', '') || 'text';
+    if (ext === '.pptx') {
+      const slides = pptxSlides(buf).map((s) => s.text);
+      const first = Math.min(Math.max(Number(args.startRow ?? 0) || 0, 0), Math.max(slides.length - 1, 0));
+      const count = Math.min(Math.max(Number(args.maxRows ?? 6) || 6, 1), 50);
+      const chunk = slides
+        .slice(first, first + count)
+        .map((s, i) => `--- slide ${first + i + 1} ---\n${s}`)
+        .join('\n\n');
+      const slice = chunk.slice(0, maxChars);
+      const next = first + count;
+      return {
+        path,
+        bytes,
+        kind: 'pptx',
+        totalSlides: slides.length,
+        startRow: first,
+        slides: Math.min(count, slides.length - first),
+        chars: slice.length,
+        text: slice,
+        nextStartRow: next < slides.length ? next : null,
+      };
+    }
+    if (ext === '.pdf') {
+      const info = pdfInfo(buf);
+      const start = Math.min(Math.max(Number(args.start ?? 0) || 0, 0), Math.max(info.text.length - 1, 0));
+      const slice = info.text.slice(start, start + maxChars);
+      return {
+        path,
+        bytes,
+        kind: 'pdf',
+        pages: info.pages,
+        hasTextLayer: info.hasTextLayer,
+        totalChars: info.text.length,
+        start,
+        chars: slice.length,
+        text: slice,
+        nextStart: start + slice.length < info.text.length ? start + slice.length : null,
+        note: info.hasTextLayer ? undefined : 'no extractable text layer; OCR is out of scope',
+      };
+    }
     if (ext === '.docx') {
       const d = docxDigest(buf);
       text = d.text;

@@ -59,10 +59,20 @@ const uiDsh = node(join(HERE, 'ui-dsh.test.mjs'), []);
 const uiDshReport = lastJson(uiDsh.stdout);
 step('ui-dsh-bundle', uiDsh.status === 0 && uiDshReport?.failed === 0, `checks=${uiDshReport?.passed ?? '?'} failed=${uiDshReport?.failed ?? 'n/a'}`);
 
-// 3d. productivity workflow: local document parsing (docx/xlsx/csv/html) run as a plugin
+// 3d. productivity workflow: local document parsing (docx/xlsx/pptx/pdf/csv/html) run as a plugin
 const docTool = node(join(HERE, 'doc-toolkit.test.mjs'), []);
 const docReport = lastJson(docTool.stdout);
 step('doc-toolkit', docTool.status === 0 && docReport?.failed === 0, `checks=${docReport?.passed ?? '?'} failed=${docReport?.failed ?? 'n/a'}`);
+
+// 3e. productivity workflow: spreadsheet profiling / cleaning / report summary
+const sheetTool = node(join(HERE, 'sheet-toolkit.test.mjs'), []);
+const sheetReport = lastJson(sheetTool.stdout);
+step('sheet-toolkit', sheetTool.status === 0 && sheetReport?.failed === 0, `checks=${sheetReport?.passed ?? '?'} failed=${sheetReport?.failed ?? 'n/a'}`);
+
+// 3f. productivity workflow: local log scan / grep / window
+const logTool = node(join(HERE, 'log-toolkit.test.mjs'), []);
+const logReport = lastJson(logTool.stdout);
+step('log-toolkit', logTool.status === 0 && logReport?.failed === 0, `checks=${logReport?.passed ?? '?'} failed=${logReport?.failed ?? 'n/a'}`);
 
 // 4. conformance (host-independent part)
 const conf = lastJson(upp(['conformance', '--pkg', PKG]).stdout);

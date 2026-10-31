@@ -1,0 +1,6 @@
+{
+  "log_scan": {
+    "path": "../../tests/fixtures/log/sample.log",
+    "maxLines": 500
+  }
+}

@@ -44,6 +44,7 @@
 | [11-p1-mapping.md](11-p1-mapping.md) | P1 能力映射实现与实测：prompts/agents/i18n/recommend 三端落地与降级 |
 | [12-repo-health.md](12-repo-health.md) | 仓库基线（commit/tag）、清理口径、`upp doctor`、发布前复现矩阵 |
 | [13-productivity-plugin.md](13-productivity-plugin.md) | 生产力插件 doc-toolkit：本地解析文档/表格、按需取窗口、省 token 实测 |
+| [15-team-plugins.md](15-team-plugins.md) | 团队高频插件 sheet-toolkit / log-toolkit：同一模板复制、契约与实测 |
 | [14-delivery-guide.md](14-delivery-guide.md) | **交付手册（团队/用户版）**：安装、开发、迁移、分发、落点、FAQ |
 
 > `upp import` / `upp analyze`（构想 ③）的实现与真机验收见 [07-migration-and-analyzer.md](07-migration-and-analyzer.md) §2.5。

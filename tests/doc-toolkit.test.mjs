@@ -76,6 +76,43 @@ check('xlsx.sheetSelect', xr2?.sheet === 'Notes' && xr2?.totalRows === 2, `sheet
 const cr = run('csv.extract.rows', 'extract', { path: join(DOC, 'sample.csv'), startRow: 2, maxRows: 2 });
 check('csv.rowWindow', cr?.rows?.length === 2 && cr?.nextStartRow === 4, `rows=${cr?.rows?.length} next=${cr?.nextStartRow}`);
 
+// ---- PDF (text layer) + PPTX (slides)
+const pdf = run('pdf.digest', 'digest', { path: join(DOC, 'sample.pdf') });
+check('pdf.pagesAndKind', pdf?.kind === 'pdf' && pdf?.pages === 2, `kind=${pdf?.kind} pages=${pdf?.pages}`);
+check('pdf.textLayer', pdf?.hasTextLayer === true && /Quarterly report/.test(pdf?.head ?? ''), `hasTextLayer=${pdf?.hasTextLayer}`);
+const pdfFlate = run('pdf.flate', 'digest', { path: join(DOC, 'sample-flate.pdf') });
+check(
+  'pdf.flateDecode',
+  pdfFlate?.hasTextLayer === true && /Compressed sample/.test(pdfFlate?.head ?? ''),
+  `hasTextLayer=${pdfFlate?.hasTextLayer}`,
+);
+const pdfWin = run('pdf.extract', 'extract', { path: join(DOC, 'sample.pdf'), start: 0, maxChars: 200 });
+check(
+  'pdf.window',
+  typeof pdfWin?.text === 'string' && pdfWin.text.length > 0 && pdfWin.totalChars === pdf?.chars,
+  `chars=${pdfWin?.chars} total=${pdfWin?.totalChars}`,
+);
+
+const pptx = run('pptx.digest', 'digest', { path: join(DOC, 'sample.pptx') });
+check('pptx.slides', pptx?.slides === 3 && pptx?.kind === 'pptx', `slides=${pptx?.slides}`);
+check(
+  'pptx.titles',
+  Array.isArray(pptx?.titles) && pptx.titles.includes('Agenda') && pptx.titles.includes('Hello Deck'),
+  `titles=${JSON.stringify(pptx?.titles)}`,
+);
+const pptxWin = run('pptx.extract', 'extract', { path: join(DOC, 'sample.pptx'), startRow: 1, maxRows: 1 });
+check(
+  'pptx.slideWindow',
+  pptxWin?.kind === 'pptx' && pptxWin?.slides === 1 && /Agenda/.test(pptxWin?.text ?? '') && pptxWin?.nextStartRow === 2,
+  `slides=${pptxWin?.slides} next=${pptxWin?.nextStartRow}`,
+);
+const pptxTail = run('pptx.extract.tail', 'extract', { path: join(DOC, 'sample.pptx'), startRow: 2, maxRows: 5 });
+check(
+  'pptx.nextNull',
+  pptxTail?.nextStartRow === null && typeof pptxTail?.text === 'string',
+  `next=${pptxTail?.nextStartRow} chars=${pptxTail?.chars}`,
+);
+
 // ---- deterministic errors through the same envelope
 const missing = cli('digest', { path: join(DOC, 'no-such-file.docx') });
 const missingJson = lastJson(missing.stdout);

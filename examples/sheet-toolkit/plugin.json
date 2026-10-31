@@ -1,0 +1,14 @@
+{
+  "name": "sheet-toolkit",
+  "displayName": "Sheet Toolkit",
+  "version": "0.1.0",
+  "description": "Local-first spreadsheet toolkit: profile an .xlsx/.csv sheet, clean empty or duplicate rows and padded cells, then group and aggregate numeric columns into a compact report. Zero network, zero dependencies.",
+  "author": {
+    "name": "UPP"
+  },
+  "category": "devtools",
+  "tags": [
+    "upp"
+  ],
+  "license": "MIT"
+}

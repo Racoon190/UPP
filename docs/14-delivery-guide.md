@@ -14,7 +14,8 @@
 | UPP 规范 | 一个插件怎么写才能三端通吃 | [01-spec.md](01-spec.md) |
 | 工具链源码 | 零依赖 Node，单文件 2,700 行 | `upp/tools/upp.mjs` |
 | 示例插件 ×2 | `hello-upp`（最小）、`hello-upp-ui`（面板） | `upp/examples/` |
-| 生产力插件 | `doc-toolkit`（本地文档/表格解析） | [13-productivity-plugin.md](13-productivity-plugin.md) |
+| 生产力插件 | `doc-toolkit`（本地文档/表格解析：docx/xlsx/pptx/pdf/csv/html） | [13-productivity-plugin.md](13-productivity-plugin.md) |
+| 团队高频插件 | `sheet-toolkit`（Excel 清洗/报表汇总）、`log-toolkit`（日志检索） | [15-team-plugins.md](15-team-plugins.md) |
 | 分发产物 | `.upp` + `.sha256` + `.sig.json` + 离线一键包 | `dist/`、`upp pack` / `bundle-offline` |
 
 一句话：**写一个零依赖 Node MCP server（它同时是 CLI）+ 一份 `upp.json` + 一个 `SKILL.md`，

@@ -11,11 +11,14 @@
 |---|---|
 | 分支 | `main` |
 | 首次提交 | `119f5a7ac95213427615d05900ba52fd4bdbbdaf` |
-| 标签 | `upp-v1.0.0`（annotated） |
-| 跟踪文件 | 80 个；工作区 759 KB；`.git` 418 KB |
+| 当前 HEAD | `d529048`（团队插件 + PDF/PPTX；本页数字以该提交为准） |
+| 标签 | `upp-v1.0.0`（annotated，指向绿色 CI 提交 `cc23a56`） |
+| 跟踪文件 | 142 个；工作区 1.9 MB；`.git` 798 KB |
 | 换行 | `.gitattributes`：`* text=auto eol=lf`，`*.cmd/*.bat eol=crlf` |
 
-提交内容 = 规范/文档（`docs/00–11` + 索引）、工具链（`tools/upp.mjs`、`tools/verify-in-app.mjs`）、测试（`tests/` 5 个文件）、示例（`examples/hello-upp`、`examples/hello-upp-ui`）、fixtures（4 个合成包）、CI 与脚本。
+提交内容 = 规范/文档（`docs/00–15` + 索引）、工具链（`tools/upp.mjs`、`tools/verify-in-app.mjs`）、测试（`tests/` 6 个测试 + fixtures）、示例（`examples/hello-upp`、`hello-upp-ui`、`doc-toolkit`、`sheet-toolkit`、`log-toolkit`）、CI 与脚本。
+
+> 安装态说明：本机三端**只保留三个生产力插件**（doc/sheet/log-toolkit）；`hello-upp`、`hello-upp-ui` 是仓库内的框架示例，已从三端卸载（Accio `custom.json`、WB `upp-local` 市场、DSH profile 均无残留）。
 
 ## 2. 清理口径（不进入版本库）
 
@@ -44,23 +47,24 @@ node tools/upp.mjs doctor
 | `dsh.profile` | ✅ `C:\Users\Administrator\.dsh\profiles\desktop` | profile 可写、可登记 bundle |
 | `workbuddy.home` | ✅ `~/.workbuddy/skills` | 技能根存在 |
 | `accio.account` | ✅ `~/.accio/accounts/1797968970/skills` | 账号技能根存在 |
-| `workbuddy.cli.mcp` | ✅ `upp-hello: node … - ✓ Connected` | MCP 配置可被底座 CLI 拉起 |
-| `accio.gateway` | ❌ `closed — start Accio before MCP registration` | **预期**：Accio 未运行；启动后再跑即 ✅ |
+| `workbuddy.cli.mcp` | ✅ `doc-toolkit / sheet-toolkit / log-toolkit … ✓ Connected` | 三个插件都能被底座 CLI 拉起 |
+| `accio.gateway` | ✅ `127.0.0.1:4097 open` | Gateway 可连（Accio 运行时） |
+| `accio.cli.mcp` | ✅ `MCP Servers (5)` | Accio 端 `server list` 可读；UPP 三个插件已注册 |
 
-结论：上表 9 项在当前机器（宿主在运行、全局 CLI 已装）全部通过；宿主未启动时 `workbuddy.cli.mcp` / `accio.gateway` 会显示预期失败。doctor 是只读检查，不修改任何宿主配置。
+结论：上表 9 项在**当前机器（宿主在运行、全局 CLI 已装、三个 UPP 插件已安装）**全部通过；宿主未启动时 `workbuddy.cli.mcp` / `accio.gateway` / `accio.cli.mcp` 会显示预期失败。doctor 是只读检查，不修改任何宿主配置。
 
 ## 4. 复现矩阵（发布前必跑）
 
 ```bash
 node tools/upp.mjs validate --pkg examples/hello-upp        # 42 checks
 node tools/upp.mjs build --pkg examples/hello-upp --check   # 零漂移
-node tests/run-all.mjs                                      # 13 步全绿
+node tests/run-all.mjs                                      # 15 步全绿
 node tools/upp.mjs conformance --pkg examples/hello-upp --hosts dsh,workbuddy,accio   # 70 checks
 node tools/upp.mjs verify --pkg examples/hello-upp          # 28 checks（可加 --hosts dsh 只看单端）
 node tools/upp.mjs pack --pkg examples/hello-upp --out dist/hello-upp-1.0.0.upp
 ```
 
-最近一次结果：`run-all 13/13`、`conformance 70 passed / 0 failed`、`verify 28 / 0 failed`。
+最近一次结果：`run-all 15/15`、`conformance 70 passed / 0 failed`、`verify 28 / 0 failed`。
 
 全局 CLI：`node tools/upp.mjs setup-cli` → `~/.upp/bin/upp.cmd`（Windows 用户 PATH 已追加）；新终端里 `upp detect` 可直接跑，`upp install --from <x.upp> --hosts ...` 即"一条命令安装"。
 

@@ -1,10 +1,10 @@
 {
   "serverName": "doc-toolkit",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "tools": [
     {
       "name": "digest",
-      "description": "Summarize a local .docx/.xlsx/.csv/.md/.txt/.html file into compact facts (structure, headings, columns, sample rows, ~1 KB) without sending the file content.",
+      "description": "Summarize a local .docx/.xlsx/.pptx/.pdf/.csv/.md/.txt/.html file into compact facts (structure, headings/slides/pages, columns, sample rows, ~1 KB) without sending the file content.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -14,7 +14,7 @@
           },
           "sampleRows": {
             "type": "integer",
-            "description": "Rows to sample for CSV/XLSX (1-20, default 5)."
+            "description": "Rows to sample for CSV/XLSX, or slides for PPTX (1-20, default 5)."
           }
         },
         "required": [
@@ -25,7 +25,7 @@
     },
     {
       "name": "extract",
-      "description": "Read a bounded window of a local file on demand: text slice for docx/md/txt/html, row window for csv/xlsx. Use only after digest when the user needs actual content.",
+      "description": "Read a bounded window of a local file on demand: text slice for docx/pdf/md/txt/html, row window for csv/xlsx, slide window for pptx. Use only after digest when the user needs actual content.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -43,11 +43,11 @@
           },
           "startRow": {
             "type": "integer",
-            "description": "First row for csv/xlsx windows (default 0)."
+            "description": "First row for csv/xlsx, or first slide index 0-based for pptx (default 0)."
           },
           "maxRows": {
             "type": "integer",
-            "description": "Max rows to return (1-200, default 20)."
+            "description": "Max rows/slides to return (1-200 rows, 1-50 slides, default 20/6)."
           },
           "sheet": {
             "type": "string",

@@ -61,7 +61,7 @@ node upp/tools/verify-in-app.mjs --pkg ~/.upp/store/hello-upp/1.0.0   # passed 1
 - `pack` 默认产出 `.upp.sha256` sidecar（`sha256sum -c` 兼容）；`pack --sign` 产出 ed25519 detached 签名 `.upp.sig.json`（公钥内嵌 + 指纹）；
 - `verify-signature --require [--pubkey <pem>]`：哈希 + 签名 + 指纹钉扎；`install --from` 自动校验，篡改 1 字节即拒绝；
 - `bundle-offline`：一键离线目录（vendored `tools/upp.mjs` + `install.cmd`/`install.sh` + `OFFLINE-MANIFEST.json` + 可选 `.zip`），本机双击等价命令实测三端装完 `failed 0`；
-- `tests/run-all.mjs`：12 步发版门槛（规范 / 协议 / import fixtures / LLM 润色离线 mock / DSH UI 静态检查 / 签名 / 篡改拒绝 / 离线包 / 全局 CLI 自举），本机 12/12；
+- `tests/run-all.mjs`：15 步发版门槛（规范 / 协议 / import fixtures / LLM 润色离线 mock / DSH UI 静态检查 / 生产力插件 doc-toolkit / sheet-toolkit / log-toolkit / 签名 / 篡改拒绝 / 离线包 / 全局 CLI 自举），本机 15/15；
 - 边界：自签 + 可选指纹钉扎，**不是** CA/信任链（见 08 §6）。
 
 ### P1.5 可选 LLM 增强（✅ 已实现，默认关闭）
@@ -128,7 +128,8 @@ node upp/tools/verify-in-app.mjs --pkg ~/.upp/store/hello-upp/1.0.0   # passed 1
 | P0 冻结 | 规范/工具链/文档定稿，打 tag `v1.0.0` | 1 天 |
 | P1.1/P1.2 | 迁移器 + 分析器 | ✅ 已完成（2026-10-29，3 个真实插件导入验证） |
 | P1.3 | 签名与离线安装包 | ✅ 已完成（sha256 + ed25519 + `bundle-offline`） |
-| P1.6 | 生产力插件 doc-toolkit + 对外交付手册 | ✅ 已完成（2026-11-01，省 token 实测进 [13](13-productivity-plugin.md)） |
+| P1.6 | 生产力插件 doc-toolkit + 对外交付手册 | ✅ 已完成（2026-11-01，省 token 实测进 [13](13-productivity-plugin.md)，PDF/PPTX 解析同日补齐） |
+| P1.7 | 团队高频插件 sheet-toolkit / log-toolkit（同一模板复制） | ✅ 已完成（2026-11-01，55 + 47 项测试，三端 verify 16/16，见 [15](15-team-plugins.md)） |
 | P1.4 | 三端 GUI 深化（按需） | 2–6 人日 |
 | P1.5 | 可选 LLM 润色 | ✅ 已完成（离线 mock 9/9） |
 

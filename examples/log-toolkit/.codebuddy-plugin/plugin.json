@@ -1,0 +1,10 @@
+{
+  "name": "log-toolkit",
+  "displayName": "Log Toolkit",
+  "version": "0.1.0",
+  "description": "Local-first log inspector: scan level counts and top messages, grep by pattern with context, then read an exact line window instead of pasting whole logs.",
+  "skills": "./skills",
+  "author": {
+    "name": "UPP"
+  }
+}

@@ -42,14 +42,14 @@ doc-toolkit/
 ```
 
 `tokenBudget` 是**硬门槛**：`upp validate` 会计算"常驻模型可见面"（两个工具的 schema + description、
-SKILL.md 的 name/description）字节数，超过 `alwaysLoadedBytes` 直接 fail。doc-toolkit 实测 1,461 B。
+SKILL.md 的 name/description）字节数，超过 `alwaysLoadedBytes` 直接 fail。doc-toolkit 实测 1,601 B（PDF/PPTX 支持后仍远低于 1800 B 预算）。
 
 ## 3. 工具契约（两个工具，够用为止）
 
 | 工具 | 参数 | 返回（`data`） | 错误码 |
 |---|---|---|---|
-| `digest` | `path`（必填）；`sampleRows` 1–20 默认 5 | `kind/bytes`、docx 的 `paragraphs/headings/outline/head`、xlsx 的 `sheets/detail[{name,rows,cols,header,sample}]`、csv 的 `rows/cols/header/columns[type]/sample`、html 的 `title/links/images`、`digestBytes` | `NOT_FOUND`、`INVALID_ARGS`（不支持的类型） |
-| `extract` | `path`（必填）；文本类 `start` / `maxChars`(200–48000)；表格类 `startRow` / `maxRows`(1–200) / `sheet` | 文本 `text/chars/totalChars/nextStart`；表格 `rows/totalRows/nextStartRow/sheet` | 同上 |
+| `digest` | `path`（必填）；`sampleRows` 1–20 默认 5（xlsx 采样行 / pptx 采样页） | `kind/bytes`、docx 的 `paragraphs/headings/outline/head`、xlsx 的 `sheets/detail[{name,rows,cols,header,sample}]`、csv 的 `rows/cols/header/columns[type]/sample`、html 的 `title/links/images`、pptx 的 `slides/titles/sample[{index,title,chars,head}]`、pdf 的 `pages/images/producer/hasTextLayer`、`digestBytes` | `NOT_FOUND`、`INVALID_ARGS`（不支持的类型） |
+| `extract` | `path`（必填）；文本类 `start` / `maxChars`(200–48000)；表格类 `startRow` / `maxRows`(1–200) / `sheet`；pptX `startRow`=首个 slide(0-based) / `maxRows`(1–50)=页数 | 文本 `text/chars/totalChars/nextStart`；表格 `rows/totalRows/nextStartRow/sheet`；pptx `text/slides/totalSlides/nextStartRow`；pdf 同文本 + `pages/hasTextLayer` | 同上 |
 
 设计原则（写进 `SKILL.md` 让模型照做）：
 
@@ -130,14 +130,16 @@ CLI 通道（`node runtime/server.mjs --cli digest --json '{...}'`）返回同�
 - xlsx：读取单元格值（含 inlineStr/sharedStrings）；**不求值**公式（读缓存值）；不读图表/图片；
 - csv：RFC4180（引号、转义、CRLF）；不做编码探测（按 UTF-8）；
 - html：去 script/style 后的正文；不做完整 DOM/选择器；
+- pptx：按 `ppt/presentation.xml` 的 sldId 顺序读每页 `<a:t>` 文本与标题占位符；**不解析**图表/图片/动画/备注；
+- pdf：本地流式解析文本层（FlateDecode + `BT/ET`、`Tj/TJ`、ToUnicode CMap）；**扫描版 PDF 返回 `hasTextLayer:false` 且无文本**（OCR 不在范围内），页数按页对象计数为近似值；
 - 单文件读取上限 48,000 字符/窗（可翻页）；PDF 不支持（见 [10-roadmap.md](10-roadmap.md) 的候选）。
 
 ## 9. 回归与证据
 
 ```bash
-node tests/doc-toolkit.test.mjs        # 26 项：四格式 digest + 三类窗口 + 错误码 + tokenBudget
+node tests/doc-toolkit.test.mjs        # 40 项：七格式 digest + 四类窗口（文本/行/slide）+ 错误码 + tokenBudget
 node tests/run-all.mjs                 # 13 步发布门（第 7 步就是本插件）
 node tools/upp.mjs verify --pkg examples/doc-toolkit --hosts dsh,workbuddy,accio
 ```
 
-夹具与复现脚本：`tests/fixtures/doc/`（4 个样本，已提交）、`tests/_make_doc_fixtures.py`（用 python-docx/openpyxl 重新生成）。
+夹具与复现脚本：`tests/fixtures/doc/`（7 个样本：docx/xlsx/csv/html/pdf/pdf-flate/pptx，已提交）、`tests/_make_doc_fixtures.py` 与 `tests/_make_pdf_pptx_fixtures.py`（用 python-docx/openpyxl/python-pptx + 手写最小 PDF 重新生成）。

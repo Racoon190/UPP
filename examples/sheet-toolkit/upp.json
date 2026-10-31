@@ -1,0 +1,39 @@
+{
+  "uppVersion": "1.0",
+  "id": "sheet-toolkit",
+  "name": "Sheet Toolkit",
+  "version": "0.1.0",
+  "description": "Local-first spreadsheet toolkit: profile an .xlsx/.csv sheet, clean empty or duplicate rows and padded cells, then group and aggregate numeric columns into a compact report. Zero network, zero dependencies.",
+  "license": "MIT",
+  "runtime": {
+    "kind": "node",
+    "entry": "runtime/server.mjs",
+    "manifest": "runtime/tools.json",
+    "minNode": "18"
+  },
+  "capabilities": [
+    "tools",
+    "skills"
+  ],
+  "permissions": {
+    "network": false,
+    "filesystem": "workspace",
+    "shell": false
+  },
+  "hosts": {
+    "dsh": {
+      "serverName": "sheet-toolkit"
+    },
+    "workbuddy": {
+      "serverName": "sheet-toolkit"
+    },
+    "accio": {
+      "serverName": "sheet-toolkit",
+      "pluginId": "sheet-toolkit"
+    }
+  },
+  "tokenBudget": {
+    "alwaysLoadedBytes": 1600,
+    "note": "Three terse tools. Parsing stays in the local runtime; callers pay for a bounded profile (~1 KB) instead of the file."
+  }
+}

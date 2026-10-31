@@ -1,0 +1,95 @@
+{
+  "serverName": "log-toolkit",
+  "version": "0.1.0",
+  "tools": [
+    {
+      "name": "log_scan",
+      "description": "Summarize a log: level counts, first/last timestamp, top messages.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Log file."
+          },
+          "maxLines": {
+            "type": "integer",
+            "description": "Lines to analyze (100-5000, default 500)."
+          },
+          "tail": {
+            "type": "boolean",
+            "description": "Analyze the tail instead of the head (default true)."
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "log_grep",
+      "description": "Find lines by regex or literal text, with line numbers and context.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Log file."
+          },
+          "pattern": {
+            "type": "string",
+            "description": "Regex (default) or literal text."
+          },
+          "ignoreCase": {
+            "type": "boolean",
+            "description": "Case-insensitive (default true)."
+          },
+          "contextLines": {
+            "type": "integer",
+            "description": "Lines around each match (0-5, default 0)."
+          },
+          "maxMatches": {
+            "type": "integer",
+            "description": "Matches to return (1-200, default 50)."
+          },
+          "tail": {
+            "type": "boolean",
+            "description": "Keep the newest matches (default true)."
+          }
+        },
+        "required": [
+          "path",
+          "pattern"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "log_window",
+      "description": "Read an exact 1-based line window; reports the total line count.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Log file."
+          },
+          "startLine": {
+            "type": "integer",
+            "description": "1-based line to start at."
+          },
+          "maxLines": {
+            "type": "integer",
+            "description": "Lines to return (1-200, default 50)."
+          }
+        },
+        "required": [
+          "path",
+          "startLine"
+        ],
+        "additionalProperties": false
+      }
+    }
+  ]
+}

@@ -110,6 +110,7 @@ UPP 承诺的是**契约范围内的 100%**，而不是"任何插件的一切都
 | [11-p1-mapping.md](11-p1-mapping.md) | P1 能力映射：prompts/agents/i18n/recommend 三端落地与降级 |
 | [12-repo-health.md](12-repo-health.md) | 仓库基线（commit/tag）、清理口径、`upp doctor`、发布前复现矩阵 |
 | [13-productivity-plugin.md](13-productivity-plugin.md) | 生产力插件 doc-toolkit：本地解析、按需取用、省 token 实测 |
+| [15-team-plugins.md](15-team-plugins.md) | 团队高频插件 sheet-toolkit / log-toolkit：模板复制与实测 |
 | [14-delivery-guide.md](14-delivery-guide.md) | 交付手册（团队/用户版）：安装、开发、迁移、分发、FAQ |
 
 ## 8. 快速开始
