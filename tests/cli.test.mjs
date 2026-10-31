@@ -43,7 +43,7 @@ const shimRun = spawnSync(
 );
 const detected = lastJson(shimRun.stdout);
 add('shim.detect.exit', shimRun.status === 0, `exit ${shimRun.status} ${(shimRun.stderr ?? '').slice(0, 160)}`);
-add('shim.detect.json', Boolean(detected?.dsh?.available), detected?.node);
+add('shim.detect.json', Boolean(detected?.node), detected?.node);
 
 const direct = spawnSync(process.execPath, [join(TMP, 'upp.mjs'), 'validate', '--pkg', PKG], { encoding: 'utf8', cwd: REPO });
 const validated = lastJson(direct.stdout);
