@@ -31,6 +31,7 @@ node upp/tools/upp.mjs <command> [options]
 | `init` | 从示例脚手架一个新包（改 id/serverName/技能名并 build） | 是 | 新插件起步 |
 | `detect` | 探测三端是否安装、路径、Node 版本 | 否 | 首次接入 / 故障排查 |
 | `setup-cli` | 把 `upp.mjs` 复制到 `~/.upp/bin`，写 `upp`/`upp.cmd` 启动 shim，Windows 追加用户 PATH（`--no-path` 可跳过） | 是（`~/.upp/bin`、用户 PATH） | 一条命令安装（全局 `upp`） |
+| `self-update` | 原地升级 `~/.upp/bin/upp.mjs`：`--from <upp.mjs|dir>`（默认仓库工具链）、`--force` 允许同版本重装/降级；版本比较 + 自动备份 `.bak-<ts>` + 重建 shim + `--version` 自检 | 是（`~/.upp/bin`） | 工具链升级（离线、一条命令）；`upp --version` 查看当前版本 |
 | `validate` | 校验 `upp.json` + 包结构（按清单动态，示例 42 项） | 否 | 提交前 / CI |
 | `build` | 由 `upp.json` 生成全部派生物（示例 17 个文件，含面板技能与 hooks） | 是 | 开发循环 |
 | `build --check` | 只比对不写；有漂移则退出码 1 | 否 | CI 防"忘 build 就提交" |
@@ -193,7 +194,7 @@ node tools/upp.mjs analyze <源插件目录> --out imports/<id>     # = import +
 | `skills/<skillId>/app/index.html` | 面板单文件（禁远程资源、禁直取 `skill-app://app`） | `ui.entry.resize` / `ui.entry.ready` / `ui.entry.remote` / `ui.entry.shared-origin` |
 | `skills/<skillId>/scripts/show.mjs` | 打印一行 slot JSON，供宿主注入 `:::slot[...]` | 由宿主解析，无静态断言 |
 | `hooks/hooks.json` + `hooks/scripts/<id>.mjs` | `<plugin>/hooks/`，且 `plugin.json.hooks = "./hooks/hooks.json"` | `workbuddy.hooks` / `workbuddy.hooks.manifest` |
-| DSH `index.js` + `client.js`（`ui.dsh: true` 时） | 空壳 Host 半边 + 手写 classic-script 客户端，注册到 `conversation.composer.dock`；`package.json.dsh.client` + `exports["./client"]`；patch 自插入包行 | `dsh.ui.client` / `dsh.ui.exports` / `dsh.ui.index` / `dsh.ui.bundle` / `dsh.ui.row` |
+| DSH `index.js` + `client.js`（`ui.dsh: true` 时） | 空壳 Host 半边 + 手写 classic-script 客户端，注册到 `conversation.input.dock`（composer 卡片上方）；`package.json.dsh.client` + `exports["./client"]`；patch 自插入包行 | `dsh.ui.client` / `dsh.ui.exports` / `dsh.ui.index` / `dsh.ui.bundle` / `dsh.ui.row` |
 
 边界（诚实标注）：
 
@@ -266,7 +267,7 @@ node tools/verify-in-app.mjs --pkg ~/.upp/store/hello-upp/1.0.0
 
 ## 9. `doctor`：装不上时先跑它
 
-输出：三端是否探测到、profile 路径、`dsh.cmd`/WorkBuddy CLI/Accio CLI 是否存在、Accio Gateway `127.0.0.1:4097` 是否可连、WorkBuddy `mcp list` 是否列出本 server。典型用途：区分"我们没写对配置"和"宿主没运行/被总闸禁用"。
+输出 9 项：`node` 版本、`cli.shim`（全局 launcher 是否存在）、`cli.version`（已安装工具链与仓库是否同版本）、三端探测到的 profile/技能根、`dsh.cmd`/WorkBuddy CLI/Accio CLI 是否存在、Accio Gateway `127.0.0.1:4097` 是否可连、WorkBuddy `mcp list` / Accio `server list` 是否列出本 server。典型用途：区分"我们没写对配置"和"宿主没运行/被总闸禁用"，以及"工具链该 `upp self-update` 了"。
 
 ---
 
@@ -292,7 +293,7 @@ node tools/verify-in-app.mjs --pkg ~/.upp/store/hello-upp/1.0.0
 - run: node tests/run-all.mjs
 ```
 
-`tests/run-all.mjs` 聚合 12 步：`validate`、`build --check`、`mcp-smoke`（7 项）、`import` fixtures（4 个合成插件）、DSH UI 包静态检查（13 项）、全局 CLI 自举（8 项）、
+`tests/run-all.mjs` 聚合 12 步：`validate`、`build --check`、`mcp-smoke`（7 项）、`import` fixtures（4 个合成插件）、DSH UI 包静态检查（14 项）、全局 CLI 自举（14 项：shim + `self-update` 升级/备份/降级拒绝/同版本 no-op）、
 `analyze-polish`（离线 mock，9 项断言）、`conformance`（30 项）、`pack-sign`、`verify-signature`、
 `tamper-detected`（改 1 字节必须被拒）、`offline-bundle`。
 本机 Node 26 实测 **12/12 步通过**；同一份脚本可在 Windows / macOS / Linux 运行（无 shell 方言依赖）。

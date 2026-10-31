@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // CLI shim test: `upp setup-cli --prefix <tmp> --no-path` then the shims must work.
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -48,6 +48,26 @@ add('shim.detect.json', Boolean(detected?.node), detected?.node);
 const direct = spawnSync(process.execPath, [join(TMP, 'upp.mjs'), 'validate', '--pkg', PKG], { encoding: 'utf8', cwd: REPO });
 const validated = lastJson(direct.stdout);
 add('copied.validate', direct.status === 0 && validated?.failed === 0, `failed=${validated?.failed ?? 'n/a'}`);
+
+
+// self-update: bump -> upgrade, then refuse downgrade, then same-version is a no-op
+const repoUpp = join(REPO, 'tools', 'upp.mjs');
+const bumped = join(TMP, 'next-upp.mjs');
+writeFileSync(bumped, readFileSync(repoUpp, 'utf8').replace(/const VERSION = '[^']+';/, "const VERSION = '9.9.9';"));
+const up = spawnSync(process.execPath, [join(TMP, 'upp.mjs'), 'self-update', '--prefix', TMP, '--from', bumped], { encoding: 'utf8', cwd: REPO });
+const upReport = lastJson(up.stdout);
+add('self-update.exit', up.status === 0, `exit ${up.status} ${(up.stderr ?? '').slice(0, 120)}`);
+add('self-update.version', upReport?.selfUpdate?.toVersion === '9.9.9', upReport?.selfUpdate?.toVersion);
+add('self-update.backup', Boolean(upReport?.selfUpdate?.backup) && existsSync(upReport.selfUpdate.backup), upReport?.selfUpdate?.backup);
+
+const verRun = spawnSync(process.execPath, [join(TMP, 'upp.mjs'), '--version'], { encoding: 'utf8', cwd: REPO });
+add('self-update.cli-version', lastJson(verRun.stdout)?.toolchain === '9.9.9', lastJson(verRun.stdout)?.toolchain ?? verRun.stdout.slice(0, 120));
+
+const down = spawnSync(process.execPath, [join(TMP, 'upp.mjs'), 'self-update', '--prefix', TMP, '--from', repoUpp], { encoding: 'utf8', cwd: REPO });
+add('self-update.downgrade-refused', down.status === 1 && lastJson(down.stdout)?.error === 'E_DOWNGRADE', lastJson(down.stdout)?.error ?? `exit ${down.status}`);
+
+const same = spawnSync(process.execPath, [join(TMP, 'upp.mjs'), 'self-update', '--prefix', TMP, '--from', bumped], { encoding: 'utf8', cwd: REPO });
+add('self-update.up-to-date', same.status === 0 && lastJson(same.stdout)?.selfUpdate?.upToDate === true, lastJson(same.stdout)?.selfUpdate?.upToDate);
 
 rmSync(TMP, { recursive: true, force: true });
 const failed = checks.filter((c) => !c.ok).length;

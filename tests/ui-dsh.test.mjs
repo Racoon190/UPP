@@ -42,7 +42,8 @@ const client = existsSync(join(PKG, 'client.js')) ? readFileSync(join(PKG, 'clie
 const firstCode = client.split(NL).map((l) => l.trim()).find((l) => l && !l.startsWith('//')) ?? '';
 check('client.iife', firstCode.startsWith('window.__ModuleLoader__.load('), firstCode.slice(0, 40));
 check('client.no-esm', !/^\s*(import|export)\s/m.test(client), 'classic script only');
-check('client.slot', client.includes("inject('conversation.composer.dock'"), 'registers into composer dock');
+check('client.slot', client.includes("inject('conversation.input.dock'"), 'registers above the composer card');
+check('client.card', client.includes("'data-upp-panel'") && client.includes('flexDirection'), 'renders a card body');
 
 const host = existsSync(join(PKG, 'index.js')) ? readFileSync(join(PKG, 'index.js'), 'utf8') : '';
 check('host.apply', /export\s+function\s+apply\s*\(\s*\)\s*\{\s*\}/.test(host), 'empty host half');

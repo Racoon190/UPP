@@ -8,16 +8,27 @@ window.__ModuleLoader__.load({
       return h('div', {
         'data-upp-panel': 'hello-ui-panel',
         title: 'Hello UI panel',
-        style: { display: 'inline-flex', alignItems: 'center', gap: 6,
-          padding: '2px 8px', borderRadius: 8, border: '1px solid #247bbf',
-          fontSize: 11, color: '#247bbf' },
-      }, 'UPP · Hello UPP UI');
+        style: { display: 'flex', flexDirection: 'column', gap: 3, width: '100%',
+          padding: '9px 12px', borderRadius: 10,
+          border: '1px solid var(--dsh-border, #d5dae2)',
+          background: 'var(--dsh-surface-raised, #f7f9fc)',
+          fontSize: 12, color: 'var(--dsh-text, #1f2329)', lineHeight: 1.45 },
+      },
+        h('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
+          h('strong', { style: { fontSize: 12.5 } }, 'Hello UPP UI'),
+          h('span', { style: { fontSize: 10, color: '#247bbf', border: '1px solid #247bbf',
+            borderRadius: 999, padding: '0 6px' } }, 'UPP · ui panel'),
+        ),
+        h('div', { style: { fontSize: 11, opacity: 0.75 } },
+          'Rendered by the DSH client bundle generated from upp.json (slot: conversation.input.dock).',
+        ),
+      );
     }
     return {
       inject: ['slots'],
       apply(ctx) {
-        ctx.slots.inject('conversation.composer.dock', () => ctx.slots.register({
-          name: 'conversation.composer.dock', id: 'hello-ui-panel', order: 50,
+        ctx.slots.inject('conversation.input.dock', () => ctx.slots.register({
+          name: 'conversation.input.dock', id: 'hello-ui-panel', order: 50,
         }, UppPanel));
       },
     };

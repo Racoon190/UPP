@@ -174,7 +174,7 @@ P1 能力映射（prompts/agents/i18n/recommend 三端落地）完成后，用�
 | DSH 面板技能 | `~/.dsh/skills/hello-upp-panel/` 出现在技能目录（模型可见） | 镜像生效，未渲染面板 |
 | WorkBuddy hooks | `plugin validate` valid；脚本直跑 exit 0 且写日志；桌面端重启后日志无 hello-upp 加载行 | 契约验证通过，加载**未证实** |
 | Accio renderer | 面板技能落盘 + `skills_config` 登记；未见 renderer 解析日志 | 落盘生效，渲染**未证实** |
-| DSH client UI bundle | `examples/hello-upp-ui` 生成 `index.js`/`client.js`，`dsh.client.platform=web`、`exports["./client"]`、patch 自插入行；`node --check` 与 13 项静态断言通过 | 生成与一致性**已证实**；**未安装**（加载需重启 DSH） |
+| DSH client UI bundle | `examples/hello-upp-ui` 生成 `index.js`/`client.js`，`dsh.client.platform=web`、`exports["./client"]`、patch 自插入行；`node --check` 与 14 项静态断言通过 | 生成与一致性**已证实**；**未安装**（加载需重启 DSH） |
 
 诚实边界：以上"未证实"项不计入 P0/P1 验收，只作为后续观察点。
 

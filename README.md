@@ -86,6 +86,7 @@ node tools/upp.mjs pack --out dist  # 交付物
 ```bash
 node tools/upp.mjs setup-cli       # 装到 ~/.upp/bin 并加入用户 PATH（Windows 用户级；--no-path 只装不写 PATH）
 upp install --from hello-upp-1.0.0.upp --hosts dsh,workbuddy,accio   # 之后任意目录一条命令装插件
+upp self-update                    # 升级全局工具链（版本比较 + 自动备份 + shim 重建；upp --version 查看）
 ```
 
 >= 离线包（`bundle-offline`）内附 `setup-cli.cmd` / `setup-cli.sh`，双击安装器后再执行一次即可全局可用；toolchain 仍是单文件零依赖 `upp.mjs`，`upp` / `upp.cmd` 只是两行启动 shim。
@@ -142,11 +143,11 @@ upp/
 - **WorkBuddy 零点击插件安装**：写本地目录市场 `~/.workbuddy/plugins/marketplaces/upp-local` + `known_marketplaces.json` + `installed_plugins.json` + `settings.enabledPlugins`，等价于"添加市场→安装"两步。
 - **分发加固**：`.upp` 自带 `.sha256`；`pack --sign` 出 ed25519 签名，`install --from` 自动校验、`--require-signature` 拒绝未签名；`bundle-offline` 一键离线包（双击安装，无需仓库/npm/网络）；`tests/run-all.mjs` 12 步发版门槛（含"篡改 1 字节必须被拒"与全局 CLI 自举）。详见 [docs/06-toolchain.md](docs/06-toolchain.md) §7 / [docs/08-security-and-supply-chain.md](docs/08-security-and-supply-chain.md) §6。
 - **实测**：`validate` 42 项 / `verify` 28 项 / `conformance --hosts` 70 项全绿；`tests/run-all.mjs` 12 步全过；DSH 技能目录实时出现镜像；Accio 自动注册 `connected` 且 `server tools` 看到工具。详见 [docs/11-p1-mapping.md](docs/11-p1-mapping.md) 与 [docs/12-repo-health.md](docs/12-repo-health.md)。
-- **可追溯基线**：`main` 首次提交 `119f5a7`，标签 `upp-v1.0.0`；`upp doctor` 6 项（5 通过，`accio.gateway` 需 Accio 在运行）。
+- **可追溯基线**：`main` 首次提交 `119f5a7`，标签 `upp-v1.0.0`；`upp doctor` 9 项（含 `cli.shim`/`cli.version`；宿主未启动时 `accio.gateway` 预期失败）。
 - **可选 LLM 润色**：`analyze --polish`（默认关闭）把复刻摘要/工具描述润色为中文并写 `contract.json.llm`，工具描述先按契约名过滤、**不改** Schema；离线 mock 测试 9 项全绿；数据外发边界见 [08](docs/08-security-and-supply-chain.md) §4.5。
 - **UI 面板（P1.4）**：`upp.json.ui` → 生成含 Accio `renderers` frontmatter 的面板技能 + 单文件 `app/index.html` + slot 脚本；三端都作为技能安装（DSH 技能目录实测可见），Accio 真正渲染需一次应用内会话。边界见 [06](docs/06-toolchain.md) §6.6。
 - **观察钩子（P2 试点）**：`upp.json.hooks`（仅 `observe`）→ WorkBuddy `hooks/hooks.json` + 独立脚本，永远 exit 0、不改工具入参；`PreToolUse/Stop` 等拦截类事件不做。边界见 [06](docs/06-toolchain.md) §6.6。
-- **DSH 原生面板（P1.4）**：`upp.json.ui.dsh = true` → 额外生成空壳 `index.js` + 手写 classic-script `client.js`（零构建、React 来自宿主 seed），注册到 `conversation.composer.dock`；示例 [examples/hello-upp-ui](examples/hello-upp-ui)。**安装后需重启 DSH**，本仓库不自动安装（避免在会话内重载 UI）。
+- **DSH 原生面板（P1.4）**：`upp.json.ui.dsh = true` → 额外生成空壳 `index.js` + 手写 classic-script `client.js`（零构建、React 来自宿主 seed），注册到 `conversation.input.dock` 并以卡片形式渲染在输入框上方；示例 [examples/hello-upp-ui](examples/hello-upp-ui)。**首次安装后需重启 DSH**（client bundle 不进 HMR 的强制重载路径时，刷新页面亦可）。
 - **既有插件可搬**：`upp import`/`upp analyze` 已实现；对 3 个真实第三方插件（Accio ecommerce、WorkBuddy agent-sdk-dev / game-dev-studio）导入后 `validate` 35/15/20 项全绿，并产出 `ANALYSIS.md` + `contract.json` 复刻契约。详见 [docs/07-migration-and-analyzer.md](docs/07-migration-and-analyzer.md) §2.5。
 
 ---

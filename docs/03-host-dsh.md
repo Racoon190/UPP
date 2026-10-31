@@ -145,7 +145,7 @@ plugin_manager({ action: "install_bundle", target: "H:/Administrator/Documents/d
 cd H:/Administrator/Documents/deepseek-harness/default-workspace/upp
 
 # 1) 安装器视角（不依赖宿主运行态）
-node tools/upp.mjs verify  --pkg examples/hello-upp   # 13 项全绿 = failed: 0
+node tools/upp.mjs verify  --pkg examples/hello-upp   # 28 项全绿 = failed: 0
 node tools/upp.mjs doctor                             # 宿主探测 + WorkBuddy CLI 健康检查
 
 # 2) 纯协议层（与宿主无关，确认 server.mjs 本身正确）

@@ -39,13 +39,15 @@ node tools/upp.mjs doctor
 | 检查项 | 结果 | 说明 |
 |---|---|---|
 | `node` | ✅ v26.12.0 | 运行时 ≥ 18 即可 |
+| `cli.shim` | ✅ `~/.upp/bin/upp.cmd` | 全局 `upp` 已安装（`node tools/upp.mjs setup-cli`） |
+| `cli.version` | ✅ `1.1.0` | 已安装工具链与仓库 `tools/upp.mjs` 同版本；落后时 `upp self-update` |
 | `dsh.profile` | ✅ `C:\Users\Administrator\.dsh\profiles\desktop` | profile 可写、可登记 bundle |
 | `workbuddy.home` | ✅ `~/.workbuddy/skills` | 技能根存在 |
 | `accio.account` | ✅ `~/.accio/accounts/1797968970/skills` | 账号技能根存在 |
 | `workbuddy.cli.mcp` | ✅ `upp-hello: node … - ✓ Connected` | MCP 配置可被底座 CLI 拉起 |
 | `accio.gateway` | ❌ `closed — start Accio before MCP registration` | **预期**：Accio 未运行；启动后再跑即 ✅ |
 
-结论：5 项通过、1 项"预期失败"（依赖宿主进程）。doctor 是只读检查，不修改任何宿主配置。
+结论：上表 9 项在当前机器（宿主在运行、全局 CLI 已装）全部通过；宿主未启动时 `workbuddy.cli.mcp` / `accio.gateway` 会显示预期失败。doctor 是只读检查，不修改任何宿主配置。
 
 ## 4. 复现矩阵（发布前必跑）
 
@@ -61,6 +63,8 @@ node tools/upp.mjs pack --pkg examples/hello-upp --out dist/hello-upp-1.0.0.upp
 最近一次结果：`run-all 12/12`、`conformance 70 passed / 0 failed`、`verify 28 / 0 failed`。
 
 全局 CLI：`node tools/upp.mjs setup-cli` → `~/.upp/bin/upp.cmd`（Windows 用户 PATH 已追加）；新终端里 `upp detect` 可直接跑，`upp install --from <x.upp> --hosts ...` 即"一条命令安装"。
+
+工具链升级：`upp self-update`（默认取仓库 `tools/upp.mjs`；也可 `--from <upp.mjs|dir>`，`--force` 允许同版本重装/降级，自动备份 `.bak-<ts>` 并重建 shim；`upp --version` 查看版本）。
 
 ## 5. 发布产物
 

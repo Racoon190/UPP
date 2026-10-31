@@ -164,5 +164,5 @@ capability = detect()
 
 ```bash
 node tests/mcp-smoke.mjs        # 协议 + CLI 等价性（6 项）
-node tools/upp.mjs verify --pkg examples/hello-upp   # 三端落盘与配置（13 项）
+node tools/upp.mjs verify --pkg examples/hello-upp   # 三端落盘与配置（28 项）
 ```

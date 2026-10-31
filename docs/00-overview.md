@@ -79,7 +79,7 @@ UPP 承诺的是**契约范围内的 100%**，而不是"任何插件的一切都
 - **P1（已部分落地）**：`ui` 面板技能（三端技能镜像；Accio 额外解析 `renderers`）、`agents` / `prompts` / `i18n` / `recommend` 三端原生形态或语义降级。
 - **P2（明确不承诺）**：Client UI 插槽（DSH/WorkBuddy 原生 UI）、可拦截事件 hooks、LSP、RPA、宿主专有沙箱。适配器忽略并告警。
 - **P2 试点（已实现，能力受限）**：WorkBuddy `observe` 钩子（`SessionStart/SessionEnd/PostToolUse`，永远 exit 0），`hooks/hooks.json` + 脚本契约经 WorkBuddy 自带 `plugin validate` 验证；拦截类事件（`PreToolUse/Stop`）不做。
-- **P1.4 已可生成**：`ui.dsh` → DSH client UI bundle（4 文件零构建形态：`package.json` + 空壳 `index.js` + 手写 `client.js` + 自插入 patch）；一致性经 13 项静态断言，**安装后需重启 DSH**。
+- **P1.4 已可生成**：`ui.dsh` → DSH client UI bundle（4 文件零构建形态：`package.json` + 空壳 `index.js` + 手写 `client.js` + 自插入 patch）；一致性经 14 项静态断言，**安装后需重启 DSH**。
 
 任何对外承诺都必须带上这句边界，否则就是虚假的"100%"。详见 [01-spec.md](01-spec.md) §8。
 
@@ -118,7 +118,7 @@ node tools/upp.mjs detect                              # 探测三端安装位�
 node tools/upp.mjs validate                            # 清单 + 包结构 12 项校验
 node tools/upp.mjs build                               # 由 upp.json 生成三端派生物
 node tools/upp.mjs install --hosts dsh,workbuddy,accio # 落盘安装（写前自动备份）
-node tools/upp.mjs verify                              # 宿主侧 13 项断言
+node tools/upp.mjs verify                              # 宿主侧 28 项断言
 node tools/upp.mjs conformance                         # 规范 + MCP smoke + CLI parity
 node tools/upp.mjs pack --out dist                     # 产出 .upp
 ```

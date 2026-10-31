@@ -72,7 +72,7 @@ node upp/tools/verify-in-app.mjs --pkg ~/.upp/store/hello-upp/1.0.0   # passed 1
 ### P1.4 宿主 GUI 深化（🟢 已实现可生成部分：Accio renderers 面板技能 + 三端技能镜像 + DSH client UI bundle 生成）
 
 已落地：`ui` 块 → 生成含 `renderers` frontmatter 的面板技能 + 单文件 HTML + slot 脚本；三端都作为技能安装（DSH 搜索目录可见 `hello-upp-panel`），Accio 额外解析 renderer。
-`ui.dsh: true` 时额外生成 DSH client UI bundle（空壳 `index.js` + 手写 classic-script `client.js` + `dsh.client`/`exports`/自插入 patch 行），见 `examples/hello-upp-ui`；13 项静态断言全绿。
+`ui.dsh: true` 时额外生成 DSH client UI bundle（空壳 `index.js` + 手写 classic-script `client.js` + `dsh.client`/`exports`/自插入 patch 行），见 `examples/hello-upp-ui`；14 项静态断言全绿，并在本机 DSH 实测加载（`conversation.input.dock` 出现 `hello-ui-panel`，order 50）。
 未落地/需人工：DSH 侧**安装后需重启**才加载（HMR 不保证 `package.json` 改动生效），本仓库不自动安装；WorkBuddy 原生 UI 无公开 API；Accio slot 自动触发仍需一次会话。
 - WorkBuddy：`.codebuddy-plugin/plugin.json` 真插件通道（含 hooks 时的安全门）；
 - Accio：`plugin.json` + `clis.json` + `subAgents` 完整通道，`/plugins/import-local` 自动化；
