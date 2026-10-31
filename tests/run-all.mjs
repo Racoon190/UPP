@@ -103,7 +103,7 @@ step('offline-bundle', Boolean(offline?.signature) && offOk, `dir=${offDir || 'n
 // 7. global CLI bootstrap (setup-cli in a temp prefix; no PATH mutation)
 const cliRun = node(join(HERE, 'cli.test.mjs'), []);
 const cliReport = lastJson(cliRun.stdout);
-step('setup-cli', cliRun.status === 0 && cliReport?.failed === 0, `checks=${cliReport?.passed ?? '?'} failed=${cliReport?.failed ?? 'n/a'}`);
+step('setup-cli', cliRun.status === 0 && cliReport?.failed === 0, `checks=${cliReport?.passed ?? '?'} failed=${cliReport?.failed ?? 'n/a'}${cliReport?.checks ? ' bad=' + cliReport.checks.filter((c) => !c.ok).map((c) => c.name).join('|') : ''}`);
 
 const failed = steps.filter((s) => !s.ok).length;
 process.stdout.write(`${JSON.stringify({ steps, passed: steps.length - failed, failed }, null, 2)}\n`);
