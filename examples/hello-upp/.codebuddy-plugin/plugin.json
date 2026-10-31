@@ -1,0 +1,19 @@
+{
+  "name": "hello-upp",
+  "displayName": "Hello UPP",
+  "version": "1.0.0",
+  "description": "Minimal cross-host UPP plugin: one MCP tool plus one skill, installed from a single artifact on DeepSeek Harness, WorkBuddy and Accio Work.",
+  "displayDescription": {
+    "en": "Minimal cross-host UPP plugin: one MCP tool plus one skill, installed from a single artifact on DeepSeek Harness, WorkBuddy and Accio Work.",
+    "zh": "最小跨宿主 UPP 插件：一个 MCP 工具 + 一个技能。"
+  },
+  "skills": "./skills",
+  "commands": "./commands",
+  "agents": [
+    "./agents/reviewer.md"
+  ],
+  "hooks": "./hooks/hooks.json",
+  "author": {
+    "name": "UPP"
+  }
+}

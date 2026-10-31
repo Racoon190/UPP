@@ -1,0 +1,7 @@
+{
+  "version": "1.0",
+  "defaultLocale": "en",
+  "entries": {
+    "en": { "plugin.displayName": "Accio Min", "plugin.description": "Minimal Accio fixture." }
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "serverName": "upp-min",
+  "tools": [
+    {
+      "name": "ping",
+      "description": "Return a small JSON envelope proving the runtime is alive.",
+      "inputSchema": {
+        "type": "object",
+        "properties": { "note": { "type": "string", "description": "Optional echo note." } },
+        "required": [],
+        "additionalProperties": false
+      }
+    }
+  ]
+}

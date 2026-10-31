@@ -1,0 +1,9 @@
+[
+  {
+    "title": "Try the UPP demo",
+    "prompts": [
+      { "text": "Use the hello-upp skill and greet 小明" },
+      { "text": "Call the hello tool over MCP and tell me which host answered" }
+    ]
+  }
+]

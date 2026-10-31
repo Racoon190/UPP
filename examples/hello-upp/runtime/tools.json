@@ -1,0 +1,20 @@
+{
+  "serverName": "upp-hello",
+  "version": "1.0.0",
+  "tools": [
+    {
+      "name": "hello",
+      "description": "Return a greeting. Use to verify that a UPP plugin is installed and alive on this host.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Who to greet. Defaults to world."
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  ]
+}

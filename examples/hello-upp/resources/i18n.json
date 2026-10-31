@@ -1,0 +1,18 @@
+{
+  "version": "1.0",
+  "defaultLocale": "en",
+  "entries": {
+    "plugin.displayName": {
+      "zh": "UPP 示例插件"
+    },
+    "plugin.description": {
+      "zh": "最小跨宿主 UPP 插件：一个 MCP 工具 + 一个技能。"
+    },
+    "skill.hello-upp.name": {
+      "zh": "UPP 问候"
+    },
+    "skill.hello-upp.description": {
+      "zh": "通过 MCP 或 CLI 发出一次问候，验证三端通道。"
+    }
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "name": "@upp/hello-upp-ui",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "UPP bundle for DeepSeek Harness (host + client UI bundle).",
+  "exports": {
+    ".": "./index.js",
+    "./client": "./client.js"
+  },
+  "files": [
+    "cordis.patch.yml",
+    "runtime/tools.json",
+    "runtime/server.mjs",
+    "index.js",
+    "client.js"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true,
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-conversation"
+      ]
+    }
+  }
+}

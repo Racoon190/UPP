@@ -1,0 +1,15 @@
+{
+  "tools": [
+    {
+      "id": "accio-demo-cli",
+      "source": {
+        "type": "node-cli",
+        "entry": "bin/tool.mjs",
+        "commandName": "accio-demo",
+        "moduleFormat": "esm"
+      },
+      "displayName": "Accio Demo CLI",
+      "description": "Prints a fixed JSON envelope."
+    }
+  ]
+}

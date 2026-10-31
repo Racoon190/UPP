@@ -1,0 +1,16 @@
+# 本地/生成物，不进入版本库
+imports/
+node_modules/
+dist/
+*.log.json
+*.upp-bak-orig
+.upp-install.json
+tests/.tmp-*/
+tests/.runall-report.json
+.tmp-*
+.pieces/
+
+# build 生成、含本机绝对路径的产物（由 upp.json + *.tpl 重新生成）
+examples/*/cordis.patch.yml
+examples/*/.upp-accio-mcp.json
+examples/*/dist/

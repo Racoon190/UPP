@@ -1,0 +1,111 @@
+{
+  "uppVersion": "1.0",
+  "id": "hello-upp",
+  "name": "Hello UPP",
+  "version": "1.0.0",
+  "description": "Minimal cross-host UPP plugin: one MCP tool plus one skill, installed from a single artifact on DeepSeek Harness, WorkBuddy and Accio Work.",
+  "license": "MIT",
+  "runtime": {
+    "kind": "node",
+    "entry": "runtime/server.mjs",
+    "manifest": "runtime/tools.json",
+    "minNode": "18"
+  },
+  "capabilities": [
+    "tools",
+    "skills",
+    "prompts",
+    "agents",
+    "ui",
+    "hooks"
+  ],
+  "permissions": {
+    "network": false,
+    "filesystem": "none",
+    "shell": false
+  },
+  "hosts": {
+    "dsh": {
+      "serverName": "upp-hello",
+      "bundle": "dsh"
+    },
+    "workbuddy": {
+      "serverName": "upp-hello",
+      "skillRoot": "skills/hello-upp"
+    },
+    "accio": {
+      "serverName": "upp-hello",
+      "pluginId": "hello-upp"
+    }
+  },
+  "tokenBudget": {
+    "alwaysLoadedBytes": 900,
+    "note": "Only SKILL.md frontmatter and tool descriptions are resident; call the CLI/MCP tool instead of pasting logic into prompt."
+  },
+  "prompts": [
+    {
+      "id": "hello-report",
+      "description": "Compose a one-paragraph status report for the current UPP plugin.",
+      "argumentHint": "[plugin id]"
+    }
+  ],
+  "agents": [
+    {
+      "id": "reviewer",
+      "description": "Reviews a UPP plugin package for contract violations before publishing.",
+      "tools": "inherit",
+      "skills": [
+        {
+          "id": "hello-upp",
+          "mode": "systemPrompt"
+        }
+      ],
+      "timeoutSeconds": 300
+    }
+  ],
+  "i18n": {
+    "defaultLocale": "en",
+    "entries": {
+      "plugin.displayName": {
+        "zh": "UPP 示例插件"
+      },
+      "plugin.description": {
+        "zh": "最小跨宿主 UPP 插件：一个 MCP 工具 + 一个技能。"
+      },
+      "skill.hello-upp.name": {
+        "zh": "UPP 问候"
+      },
+      "skill.hello-upp.description": {
+        "zh": "通过 MCP 或 CLI 发出一次问候，验证三端通道。"
+      }
+    }
+  },
+  "recommend": [
+    {
+      "title": "Try the UPP demo",
+      "prompts": [
+        {
+          "text": "Use the hello-upp skill and greet 小明"
+        },
+        {
+          "text": "Call the hello tool over MCP and tell me which host answered"
+        }
+      ]
+    }
+  ],
+  "ui": {
+    "rendererId": "hello-panel",
+    "skillId": "hello-upp-panel",
+    "title": "Hello UPP panel",
+    "entry": "ui/app/index.html"
+  },
+  "hooks": [
+    {
+      "id": "session-log",
+      "event": "SessionStart",
+      "matcher": "startup",
+      "timeoutSeconds": 10,
+      "mode": "observe"
+    }
+  ]
+}

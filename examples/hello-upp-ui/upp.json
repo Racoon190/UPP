@@ -1,0 +1,42 @@
+{
+  "uppVersion": "1.0",
+  "id": "hello-upp-ui",
+  "name": "Hello UPP UI",
+  "version": "1.0.0",
+  "description": "UPP demo with a DeepSeek Harness client UI panel (composer dock card) generated from the same manifest.",
+  "minNode": "18",
+  "runtime": {
+    "kind": "node",
+    "entry": "runtime/server.mjs",
+    "manifest": "runtime/tools.json",
+    "protocol": "mcp/stdio"
+  },
+  "capabilities": ["tools", "ui"],
+  "tools": [
+    {
+      "name": "hello",
+      "description": "Say hello from the UPP example plugin (UI variant).",
+      "inputSchema": {
+        "type": "object",
+        "properties": { "name": { "type": "string", "description": "Who to greet" } },
+        "additionalProperties": false
+      }
+    }
+  ],
+  "permissions": { "network": false, "filesystem": "none", "shell": false },
+  "hosts": {
+    "dsh": { "serverName": "upp-hello-ui" },
+    "workbuddy": { "serverName": "upp-hello-ui" },
+    "accio": { "serverName": "upp-hello-ui" }
+  },
+  "ui": {
+    "rendererId": "hello-ui-panel",
+    "skillId": "hello-ui-panel",
+    "title": "Hello UI panel",
+    "entry": "ui/app/index.html",
+    "dsh": true,
+    "slot": "conversation.composer.dock",
+    "order": 50
+  },
+  "tokenBudget": { "alwaysLoadedBytes": 900 }
+}

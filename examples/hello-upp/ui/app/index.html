@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Hello UPP</title>
+    <style>
+      :root { color-scheme: light dark; }
+      body { margin: 0; padding: 16px; font: 14px/1.5 system-ui, sans-serif; }
+      h1 { margin: 0 0 4px; font-size: 18px; }
+      p { margin: 0; opacity: 0.75; }
+    </style>
+  </head>
+  <body>
+    <h1>Hello UPP</h1>
+    <p id="status">single-file panel, no build, no network</p>
+    <script>
+      // P2-1 safety contract: no remote assets, no skill-app:// fetch, parent owns the iframe.
+      function post(type, data) {
+        parent.postMessage({ type, data: data || {} }, '*');
+      }
+      function report() {
+        post('ui/resize', { height: document.documentElement.scrollHeight });
+        post('ui/ready', { skillId: 'hello-upp-panel' });
+      }
+      window.addEventListener('message', function (event) {
+        var msg = event.data || {};
+        if (msg.type === 'ui/init') {
+          var name = (msg.data && msg.data.pluginName) || 'Hello UPP';
+          document.title = name;
+          document.getElementById('status').textContent = name + ' v1.0.0 ready';
+          report();
+        }
+      });
+      report();
+    </script>
+  </body>
+</html>

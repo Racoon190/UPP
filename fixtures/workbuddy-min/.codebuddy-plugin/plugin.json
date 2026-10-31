@@ -1,0 +1,6 @@
+{
+  "name": "wb-min",
+  "version": "0.1.0",
+  "description": "Minimal WorkBuddy-format fixture used by UPP import tests.",
+  "skills": "./skills"
+}

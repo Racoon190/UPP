@@ -1,0 +1,10 @@
+{
+  "name": "hello-upp-ui",
+  "displayName": "Hello UPP UI",
+  "version": "1.0.0",
+  "description": "UPP demo with a DeepSeek Harness client UI panel (composer dock card) generated from the same manifest.",
+  "skills": "./skills",
+  "author": {
+    "name": "UPP"
+  }
+}

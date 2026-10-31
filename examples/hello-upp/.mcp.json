@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "upp-hello": {
+      "command": "node",
+      "args": [
+        "${CODEBUDDY_PLUGIN_ROOT}/runtime/server.mjs"
+      ],
+      "env": {
+        "UPP_HOST": "workbuddy"
+      }
+    }
+  }
+}

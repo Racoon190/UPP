@@ -1,0 +1,6 @@
+{
+  "name": "accio-min",
+  "version": "0.1.0",
+  "description": "Minimal Accio-format fixture (skills + clis + i18n).",
+  "category": "devtools"
+}

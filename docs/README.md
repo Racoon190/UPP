@@ -1,0 +1,42 @@
+# UPP 文档索引
+
+> 先读 [00-overview.md](00-overview.md)；要动手写插件读 [01-spec.md](01-spec.md) + [06-toolchain.md](06-toolchain.md)；
+> 排查"某端装不上"直接跳到对应宿主篇。
+
+## 三条阅读路径
+
+**决策者 / 评审**（30 分钟）
+1. [00-overview.md](00-overview.md) —— 四层架构、三个原构想取舍、"100%"的严格定义
+2. [09-poc-report.md](09-poc-report.md) —— 本机实测矩阵与证据
+3. [10-roadmap.md](10-roadmap.md) —— 承诺边界、风险、验收门槛
+
+**插件作者**（1 小时）
+1. [01-spec.md](01-spec.md) —— `upp.json`、MCP/CLI 契约、技能层
+2. [06-toolchain.md](06-toolchain.md) —— build/pack/install/verify/conformance
+3. [02-channels.md](02-channels.md) —— MCP→CLI→技能如何降级、错误码
+
+**宿主适配者**（按端选读）
+- DSH：[03-host-dsh.md](03-host-dsh.md)
+- WorkBuddy：[04-host-workbuddy.md](04-host-workbuddy.md)
+- Accio Work：[05-host-accio.md](05-host-accio.md)
+
+**P1 规划**：[07-migration-and-analyzer.md](07-migration-and-analyzer.md)（迁移器/分析器）、[08-security-and-supply-chain.md](08-security-and-supply-chain.md)（签名、供应链、回滚）
+
+## 全部文档
+
+| 文档 | 一句话 |
+|---|---|
+| [00-overview.md](00-overview.md) | 问题、架构、取舍、实测结论、快速开始 |
+| [01-spec.md](01-spec.md) | UPP v1 规范正文（字段、协议、契约等级、conformance） |
+| [02-channels.md](02-channels.md) | 三通道判定算法、错误语义、token 成本 |
+| [03-host-dsh.md](03-host-dsh.md) | DSH：bundle/patch/profile/skills 四通道与验证 |
+| [04-host-workbuddy.md](04-host-workbuddy.md) | WorkBuddy：skills 热加载 + mcp.json + 双体系差异 |
+| [05-host-accio.md](05-host-accio.md) | Accio：Gateway 唯一写入口、skills_config、插件导入 |
+| [06-toolchain.md](06-toolchain.md) | `upp` CLI 全命令、store 语义、检查项、故障排查、CI |
+| [07-migration-and-analyzer.md](07-migration-and-analyzer.md) | 迁移器 `upp import` 与分析器 `upp analyze`（设计+验收） |
+| [08-security-and-supply-chain.md](08-security-and-supply-chain.md) | 威胁模型、权限映射、完整性、回滚 |
+| [09-poc-report.md](09-poc-report.md) | P0 实机验证报告（环境、矩阵、证据、问题、复现） |
+| [10-roadmap.md](10-roadmap.md) | P0/P1/P2 验收矩阵、风险登记、时间线 |
+| [11-p1-mapping.md](11-p1-mapping.md) | P1 能力映射实现与实测：prompts/agents/i18n/recommend 三端落地与降级 |
+
+> `upp import` / `upp analyze`（构想 ③）的实现与真机验收见 [07-migration-and-analyzer.md](07-migration-and-analyzer.md) §2.5。

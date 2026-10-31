@@ -1,0 +1,20 @@
+{
+  "serverName": "upp-hello-ui",
+  "version": "1.0.0",
+  "tools": [
+    {
+      "name": "hello",
+      "description": "Say hello from the UPP example plugin (UI variant).",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Who to greet"
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  ]
+}

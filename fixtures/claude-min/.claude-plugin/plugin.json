@@ -1,0 +1,7 @@
+{
+  "name": "claude-min",
+  "version": "0.1.0",
+  "description": "Minimal Claude-format fixture (commands + agents).",
+  "commands": "./commands",
+  "agents": "./agents"
+}

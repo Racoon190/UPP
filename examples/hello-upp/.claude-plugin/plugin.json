@@ -1,0 +1,16 @@
+{
+  "name": "hello-upp",
+  "displayName": {
+    "en": "Hello UPP",
+    "zh": "UPP 示例插件"
+  },
+  "version": "1.0.0",
+  "description": "Minimal cross-host UPP plugin: one MCP tool plus one skill, installed from a single artifact on DeepSeek Harness, WorkBuddy and Accio Work.",
+  "author": {
+    "name": "UPP"
+  },
+  "category": "devtools",
+  "tags": [
+    "upp"
+  ]
+}

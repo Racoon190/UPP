@@ -1,0 +1,17 @@
+{
+  "name": "@local/upp-hello",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "UPP bundle for DeepSeek Harness (config-only MCP bundle).",
+  "files": [
+    "cordis.patch.yml",
+    "runtime/tools.json",
+    "runtime/server.mjs"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  }
+}

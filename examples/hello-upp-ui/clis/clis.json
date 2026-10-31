@@ -1,0 +1,22 @@
+{
+  "tools": [
+    {
+      "id": "upp-hello-ui",
+      "displayName": "Hello UPP UI CLI",
+      "description": "Call Hello UPP UI from a shell (UPP CLI channel).",
+      "verifyArgs": [
+        "--info"
+      ],
+      "usageExamples": [
+        "node runtime/server.mjs --cli hello --json '{}'"
+      ],
+      "exposure": "all-agents",
+      "source": {
+        "type": "node-cli",
+        "entry": "runtime/server.mjs",
+        "commandName": "upp-hello-ui",
+        "moduleFormat": "esm"
+      }
+    }
+  ]
+}

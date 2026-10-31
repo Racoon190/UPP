@@ -1,0 +1,15 @@
+{
+  "uppVersion": "1.0",
+  "id": "upp-min",
+  "name": "UPP Min",
+  "version": "0.1.0",
+  "description": "Smallest complete UPP package used by the regression suite.",
+  "runtime": { "kind": "node", "entry": "runtime/server.mjs", "manifest": "runtime/tools.json" },
+  "capabilities": ["tools", "skills"],
+  "permissions": { "network": false, "filesystem": "none", "shell": false },
+  "hosts": {
+    "dsh": { "serverName": "upp-min" },
+    "workbuddy": { "serverName": "upp-min" },
+    "accio": { "serverName": "upp-min" }
+  }
+}
