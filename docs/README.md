@@ -38,5 +38,6 @@
 | [09-poc-report.md](09-poc-report.md) | P0 实机验证报告（环境、矩阵、证据、问题、复现） |
 | [10-roadmap.md](10-roadmap.md) | P0/P1/P2 验收矩阵、风险登记、时间线 |
 | [11-p1-mapping.md](11-p1-mapping.md) | P1 能力映射实现与实测：prompts/agents/i18n/recommend 三端落地与降级 |
+| [12-repo-health.md](12-repo-health.md) | 仓库基线（commit/tag）、清理口径、`upp doctor`、发布前复现矩阵 |
 
 > `upp import` / `upp analyze`（构想 ③）的实现与真机验收见 [07-migration-and-analyzer.md](07-migration-and-analyzer.md) §2.5。

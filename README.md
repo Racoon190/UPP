@@ -123,6 +123,7 @@ upp/
 | [docs/09-poc-report.md](docs/09-poc-report.md) | P0 实机验证报告：矩阵、证据、问题、复现 |
 | [docs/10-roadmap.md](docs/10-roadmap.md) | P0/P1/P2 验收门槛、风险登记、时间线 |
 | [docs/11-p1-mapping.md](docs/11-p1-mapping.md) | P1 能力映射：prompts/agents/i18n/recommend 三端落地与降级 |
+| [docs/12-repo-health.md](docs/12-repo-health.md) | 仓库基线（commit/tag）、清理口径、`upp doctor`、发布前复现矩阵 |
 
 ---
 
@@ -131,7 +132,8 @@ upp/
 - **声明一次，三端原生**：`prompts[]` 在 WorkBuddy 编译为 `commands/*.md`，在 DSH 镜像为技能；`agents[]` 在 WorkBuddy 是原生 agent、Accio 是 `subAgents[]` + `subagents/<id>/prompt.md` 双确认、DSH 降级为技能镜像；`i18n`/`recommend` 写进 Accio `resources/` 与清单。
 - **WorkBuddy 零点击插件安装**：写本地目录市场 `~/.workbuddy/plugins/marketplaces/upp-local` + `known_marketplaces.json` + `installed_plugins.json` + `settings.enabledPlugins`，等价于"添加市场→安装"两步。
 - **分发加固**：`.upp` 自带 `.sha256`；`pack --sign` 出 ed25519 签名，`install --from` 自动校验、`--require-signature` 拒绝未签名；`bundle-offline` 一键离线包（双击安装，无需仓库/npm/网络）；`tests/run-all.mjs` 11 步发版门槛（含"篡改 1 字节必须被拒"）。详见 [docs/06-toolchain.md](docs/06-toolchain.md) §7 / [docs/08-security-and-supply-chain.md](docs/08-security-and-supply-chain.md) §6。
-- **实测**：`validate` 21 项 / `verify` 20 项 / `conformance --hosts` 50 项全绿；DSH 技能目录实时出现两条镜像；Accio 自动注册 `connected` 且 `server tools` 看到工具。详见 [docs/11-p1-mapping.md](docs/11-p1-mapping.md)。
+- **实测**：`validate` 42 项 / `verify` 28 项 / `conformance --hosts` 70 项全绿；`tests/run-all.mjs` 11 步全过；DSH 技能目录实时出现镜像；Accio 自动注册 `connected` 且 `server tools` 看到工具。详见 [docs/11-p1-mapping.md](docs/11-p1-mapping.md) 与 [docs/12-repo-health.md](docs/12-repo-health.md)。
+- **可追溯基线**：`main` 首次提交 `119f5a7`，标签 `upp-v1.0.0`；`upp doctor` 6 项（5 通过，`accio.gateway` 需 Accio 在运行）。
 - **可选 LLM 润色**：`analyze --polish`（默认关闭）把复刻摘要/工具描述润色为中文并写 `contract.json.llm`，工具描述先按契约名过滤、**不改** Schema；离线 mock 测试 9 项全绿；数据外发边界见 [08](docs/08-security-and-supply-chain.md) §4.5。
 - **UI 面板（P1.4）**：`upp.json.ui` → 生成含 Accio `renderers` frontmatter 的面板技能 + 单文件 `app/index.html` + slot 脚本；三端都作为技能安装（DSH 技能目录实测可见），Accio 真正渲染需一次应用内会话。边界见 [06](docs/06-toolchain.md) §6.6。
 - **观察钩子（P2 试点）**：`upp.json.hooks`（仅 `observe`）→ WorkBuddy `hooks/hooks.json` + 独立脚本，永远 exit 0、不改工具入参；`PreToolUse/Stop` 等拦截类事件不做。边界见 [06](docs/06-toolchain.md) §6.6。

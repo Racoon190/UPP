@@ -75,7 +75,7 @@ hello-upp/
 UPP 承诺的是**契约范围内的 100%**，而不是"任何插件的一切都能无损搬运"：
 
 - **P0（承诺 100%，逐端实测）**：工具名、输入 JSON Schema、结果 JSON、错误码、CLI 行为、技能可发现性、安装/卸载幂等。
-- **P1（承诺功能等价，能力映射已实现并实测）**：提示词/命令、子代理、i18n、推荐提示——见 [11-p1-mapping.md](11-p1-mapping.md)；迁移器/分析器仍为规划。
+- **P1（承诺功能等价，能力映射已实现并实测）**：提示词/命令、子代理、i18n、推荐提示——见 [11-p1-mapping.md](11-p1-mapping.md)；迁移器/分析器已实现并真机验收——见 [07-migration-and-analyzer.md](07-migration-and-analyzer.md)。
 - **P1（已部分落地）**：`ui` 面板技能（三端技能镜像；Accio 额外解析 `renderers`）、`agents` / `prompts` / `i18n` / `recommend` 三端原生形态或语义降级。
 - **P2（明确不承诺）**：Client UI 插槽（DSH/WorkBuddy 原生 UI）、可拦截事件 hooks、LSP、RPA、宿主专有沙箱。适配器忽略并告警。
 - **P2 试点（已实现，能力受限）**：WorkBuddy `observe` 钩子（`SessionStart/SessionEnd/PostToolUse`，永远 exit 0），`hooks/hooks.json` + 脚本契约经 WorkBuddy 自带 `plugin validate` 验证；拦截类事件（`PreToolUse/Stop`）不做。
@@ -108,6 +108,7 @@ UPP 承诺的是**契约范围内的 100%**，而不是"任何插件的一切都
 | [09-poc-report.md](09-poc-report.md) | P0 实机验证报告 |
 | [10-roadmap.md](10-roadmap.md) | P0/P1/P2 里程碑、验收标准、风险登记 |
 | [11-p1-mapping.md](11-p1-mapping.md) | P1 能力映射：prompts/agents/i18n/recommend 三端落地与降级 |
+| [12-repo-health.md](12-repo-health.md) | 仓库基线（commit/tag）、清理口径、`upp doctor`、发布前复现矩阵 |
 
 ## 8. 快速开始
 
