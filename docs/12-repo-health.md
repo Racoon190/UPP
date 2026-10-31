@@ -54,13 +54,13 @@ node tools/upp.mjs doctor
 ```bash
 node tools/upp.mjs validate --pkg examples/hello-upp        # 42 checks
 node tools/upp.mjs build --pkg examples/hello-upp --check   # 零漂移
-node tests/run-all.mjs                                      # 12 步全绿
+node tests/run-all.mjs                                      # 13 步全绿
 node tools/upp.mjs conformance --pkg examples/hello-upp --hosts dsh,workbuddy,accio   # 70 checks
 node tools/upp.mjs verify --pkg examples/hello-upp          # 28 checks（可加 --hosts dsh 只看单端）
 node tools/upp.mjs pack --pkg examples/hello-upp --out dist/hello-upp-1.0.0.upp
 ```
 
-最近一次结果：`run-all 12/12`、`conformance 70 passed / 0 failed`、`verify 28 / 0 failed`。
+最近一次结果：`run-all 13/13`、`conformance 70 passed / 0 failed`、`verify 28 / 0 failed`。
 
 全局 CLI：`node tools/upp.mjs setup-cli` → `~/.upp/bin/upp.cmd`（Windows 用户 PATH 已追加）；新终端里 `upp detect` 可直接跑，`upp install --from <x.upp> --hosts ...` 即"一条命令安装"。
 

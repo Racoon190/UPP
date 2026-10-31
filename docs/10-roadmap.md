@@ -127,7 +127,8 @@ node upp/tools/verify-in-app.mjs --pkg ~/.upp/store/hello-upp/1.0.0   # passed 1
 | P0 收尾 | ✅ 已完成：三端运行态闭环 + 报告补全 + 凭据自动发现 | — |
 | P0 冻结 | 规范/工具链/文档定稿，打 tag `v1.0.0` | 1 天 |
 | P1.1/P1.2 | 迁移器 + 分析器 | ✅ 已完成（2026-10-29，3 个真实插件导入验证） |
-| P1.3 | 签名与离线安装包 | 1–2 人日 |
+| P1.3 | 签名与离线安装包 | ✅ 已完成（sha256 + ed25519 + `bundle-offline`） |
+| P1.6 | 生产力插件 doc-toolkit + 对外交付手册 | ✅ 已完成（2026-11-01，省 token 实测进 [13](13-productivity-plugin.md)） |
 | P1.4 | 三端 GUI 深化（按需） | 2–6 人日 |
 | P1.5 | 可选 LLM 润色 | ✅ 已完成（离线 mock 9/9） |
 

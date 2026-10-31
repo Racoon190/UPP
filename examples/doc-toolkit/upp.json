@@ -1,0 +1,39 @@
+{
+  "uppVersion": "1.0",
+  "id": "doc-toolkit",
+  "name": "Doc Toolkit",
+  "version": "0.1.0",
+  "description": "Local-first document and spreadsheet inspector: digest a .docx/.xlsx/.csv/.md/.html file, then pull bounded windows on demand instead of loading whole files into the conversation.",
+  "license": "MIT",
+  "runtime": {
+    "kind": "node",
+    "entry": "runtime/server.mjs",
+    "manifest": "runtime/tools.json",
+    "minNode": "18"
+  },
+  "capabilities": [
+    "tools",
+    "skills"
+  ],
+  "permissions": {
+    "network": false,
+    "filesystem": "workspace",
+    "shell": false
+  },
+  "hosts": {
+    "dsh": {
+      "serverName": "doc-toolkit"
+    },
+    "workbuddy": {
+      "serverName": "doc-toolkit"
+    },
+    "accio": {
+      "serverName": "doc-toolkit",
+      "pluginId": "doc-toolkit"
+    }
+  },
+  "tokenBudget": {
+    "alwaysLoadedBytes": 1600,
+    "note": "Two tools only. Heavy parsing stays inside the local runtime; callers pay for a digest (~1 KB) instead of the file."
+  }
+}

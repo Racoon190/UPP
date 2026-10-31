@@ -1,0 +1,64 @@
+{
+  "serverName": "doc-toolkit",
+  "version": "0.1.0",
+  "tools": [
+    {
+      "name": "digest",
+      "description": "Summarize a local .docx/.xlsx/.csv/.md/.txt/.html file into compact facts (structure, headings, columns, sample rows, ~1 KB) without sending the file content.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Local file path to inspect."
+          },
+          "sampleRows": {
+            "type": "integer",
+            "description": "Rows to sample for CSV/XLSX (1-20, default 5)."
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "extract",
+      "description": "Read a bounded window of a local file on demand: text slice for docx/md/txt/html, row window for csv/xlsx. Use only after digest when the user needs actual content.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Local file path to read."
+          },
+          "start": {
+            "type": "integer",
+            "description": "Character offset for text-like files (default 0)."
+          },
+          "maxChars": {
+            "type": "integer",
+            "description": "Max characters to return (200-48000, default 4000)."
+          },
+          "startRow": {
+            "type": "integer",
+            "description": "First row for csv/xlsx windows (default 0)."
+          },
+          "maxRows": {
+            "type": "integer",
+            "description": "Max rows to return (1-200, default 20)."
+          },
+          "sheet": {
+            "type": "string",
+            "description": "Sheet name for xlsx (default first sheet)."
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "additionalProperties": false
+      }
+    }
+  ]
+}

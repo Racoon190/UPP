@@ -19,6 +19,10 @@ const pkgDir = resolve(args[args.indexOf('--pkg') + 1] ?? args.find((a) => !a.st
 const manifestPath = join(pkgDir, 'runtime', 'tools.json');
 const manifest = existsSync(manifestPath) ? JSON.parse(readFileSync(manifestPath, 'utf8')) : null;
 const entry = join(pkgDir, 'runtime', 'server.mjs');
+// Optional package-level smoke arguments (host-neutral extra file, never part of the tool schema).
+// Values that are relative paths are resolved against the package dir, so fixtures can live in the repo.
+const smokePath = join(pkgDir, 'smoke.json');
+const smokeArgs = existsSync(smokePath) ? JSON.parse(readFileSync(smokePath, 'utf8')) : {};
 const checks = [];
 const stderr = [];
 const VOLATILE = new Set(['pid', 'ts', 'elapsedMs']);
@@ -160,7 +164,14 @@ if (!manifest) {
   record('runtime.entry', false, `missing ${entry}`);
 } else {
   const tool = manifest.tools[0];
-  const args = sampleArgs(tool);
+  const overrides = smokeArgs[tool.name] ?? smokeArgs['*'] ?? {};
+  const args = { ...sampleArgs(tool), ...overrides };
+  for (const key of Object.keys(args)) {
+    const value = args[key];
+    if (typeof value === 'string' && (value.startsWith('./') || value.startsWith('../'))) {
+      args[key] = resolve(pkgDir, value);
+    }
+  }
   const mcpEnvelope = await runMcp(tool, args);
   const cliEnvelope = await runCli(tool, args);
   record(

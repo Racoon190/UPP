@@ -1,0 +1,6 @@
+id,name,score,note
+1,alpha,91.5,"first, with comma"
+2,beta,78,"has ""quoted"" text"
+3,gamma,88.25,
+4,delta,65,low
+5,epsilon,99,top

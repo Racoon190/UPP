@@ -59,6 +59,11 @@ const uiDsh = node(join(HERE, 'ui-dsh.test.mjs'), []);
 const uiDshReport = lastJson(uiDsh.stdout);
 step('ui-dsh-bundle', uiDsh.status === 0 && uiDshReport?.failed === 0, `checks=${uiDshReport?.passed ?? '?'} failed=${uiDshReport?.failed ?? 'n/a'}`);
 
+// 3d. productivity workflow: local document parsing (docx/xlsx/csv/html) run as a plugin
+const docTool = node(join(HERE, 'doc-toolkit.test.mjs'), []);
+const docReport = lastJson(docTool.stdout);
+step('doc-toolkit', docTool.status === 0 && docReport?.failed === 0, `checks=${docReport?.passed ?? '?'} failed=${docReport?.failed ?? 'n/a'}`);
+
 // 4. conformance (host-independent part)
 const conf = lastJson(upp(['conformance', '--pkg', PKG]).stdout);
 step('conformance', conf?.failed === 0, `passed=${conf?.passed ?? '?'} failed=${conf?.failed ?? '?'}`);

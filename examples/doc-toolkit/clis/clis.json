@@ -1,0 +1,22 @@
+{
+  "tools": [
+    {
+      "id": "doc-toolkit",
+      "displayName": "Doc Toolkit CLI",
+      "description": "Call Doc Toolkit from a shell (UPP CLI channel).",
+      "verifyArgs": [
+        "--info"
+      ],
+      "usageExamples": [
+        "node runtime/server.mjs --cli tool --json '{}'"
+      ],
+      "exposure": "all-agents",
+      "source": {
+        "type": "node-cli",
+        "entry": "runtime/server.mjs",
+        "commandName": "doc-toolkit",
+        "moduleFormat": "esm"
+      }
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "name": "doc-toolkit",
+  "displayName": "Doc Toolkit",
+  "version": "0.1.0",
+  "description": "Local-first document and spreadsheet inspector: digest a .docx/.xlsx/.csv/.md/.html file, then pull bounded windows on demand instead of loading whole files into the conversation.",
+  "author": {
+    "name": "UPP"
+  },
+  "category": "devtools",
+  "tags": [
+    "upp"
+  ]
+}
