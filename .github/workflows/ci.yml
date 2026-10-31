@@ -19,7 +19,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node }}
-      - name: release gate (9 steps)
+      - name: release gate (11 steps: spec, build, MCP/CLI, import, polish, ui, conformance, signing, offline)
         run: node tests/run-all.mjs
 
   artifacts:

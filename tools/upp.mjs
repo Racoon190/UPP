@@ -733,9 +733,14 @@ function generate(pkg, m, { check = false } = {}) {
   }
 
   const drift = [];
+  // Machine-local outputs embed absolute paths (or host credentials): they are
+  // regenerated per install and must never be treated as source drift.
+  const MACHINE_LOCAL = new Set(['cordis.patch.yml', '.upp-accio-mcp.json']);
   for (const { file, text } of writes) {
+    const rel = relative(pkg, file).split(sep).join('/');
+    if (MACHINE_LOCAL.has(rel)) continue;
     const current = existsSync(file) ? readFileSync(file, 'utf8') : null;
-    if (current !== text) drift.push(relative(pkg, file));
+    if (current !== text) drift.push(rel);
   }
   if (!check) for (const { file, text } of writes) writeText(file, text);
   return { files: writes.map((w) => relative(pkg, w.file)), drift };
