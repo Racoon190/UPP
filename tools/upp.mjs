@@ -1458,7 +1458,7 @@ async function cmdInstall(pkg) {
   log({ package: pkg, id: m.id, version: m.version, serverName: m.serverName, results });
 }
 
-function cmdVerify(pkg) {
+function cmdVerify(pkg, wanted) {
   const m = loadManifest(pkg);
   m.pkgDir = pkg;
   const hosts = detectHosts();
@@ -1467,7 +1467,9 @@ function cmdVerify(pkg) {
   try {
     smokeReport = JSON.parse(smoke.stdout);
   } catch {}
-  const checks = [...verifyDsh(pkg, hosts, m), ...verifyWorkBuddy(hosts, m), ...verifyAccio(hosts, m)];
+  const all = [...verifyDsh(pkg, hosts, m), ...verifyWorkBuddy(hosts, m), ...verifyAccio(hosts, m)];
+  const hostOf = (name) => (name.startsWith('dsh.') ? 'dsh' : name.startsWith('workbuddy.') ? 'workbuddy' : name.startsWith('accio.') ? 'accio' : 'shared');
+  const checks = wanted?.length ? all.filter((c) => hostOf(c.check) === 'shared' || wanted.includes(hostOf(c.check))) : all;
   const report = {
     package: pkg,
     id: m.id,
@@ -2576,7 +2578,7 @@ switch (command) {
     await cmdInstall(pkg);
     break;
   case 'verify':
-    cmdVerify(pkg);
+    cmdVerify(pkg, (flag('hosts', 'dsh,workbuddy,accio')).split(',').map((s) => s.trim()));
     break;
   case 'conformance':
     await cmdConformance(pkg);

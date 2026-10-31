@@ -54,7 +54,7 @@ node tools/upp.mjs validate --pkg examples/hello-upp        # 42 checks
 node tools/upp.mjs build --pkg examples/hello-upp --check   # 零漂移
 node tests/run-all.mjs                                      # 11 步全绿
 node tools/upp.mjs conformance --pkg examples/hello-upp --hosts dsh,workbuddy,accio   # 70 checks
-node tools/upp.mjs verify --pkg examples/hello-upp          # 28 checks
+node tools/upp.mjs verify --pkg examples/hello-upp          # 28 checks（可加 --hosts dsh 只看单端）
 node tools/upp.mjs pack --pkg examples/hello-upp --out dist/hello-upp-1.0.0.upp
 ```
 

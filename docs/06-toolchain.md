@@ -158,7 +158,7 @@ node upp/tools/upp.mjs install --from dist/hello-upp-1.0.0.upp
 | Accio | `accio.mcp.payload` | 安装载荷文件存在 |
 | Accio | `accio.mcp.registered` | `server test` 通过（工具发现；本轮实测 1 tool） |
 
-`failed > 0` 即退出码 1（P0 示例 20 项；P1 插件会按 `prompts`/`agents` 数量增加）。注意：`verify` 证明"宿主配置写对了"，不证明"宿主 GUI 里点了能用"——后者由各篇的宿主侧验证小节给出人工步骤。
+`failed > 0` 即退出码 1（全量示例 28 项：DSH 10 + WorkBuddy 11 + Accio 7；P1 插件会按 `prompts`/`agents`/`ui`/`hooks` 数量增加）。`--hosts dsh` 时只断言该端检查项（示例：`verify --pkg examples/hello-upp-ui --hosts dsh` → 12 项）。注意：`verify` 证明"宿主配置写对了"，不证明"宿主 GUI 里点了能用"——后者由各篇的宿主侧验证小节给出人工步骤。
 
 ---
 
