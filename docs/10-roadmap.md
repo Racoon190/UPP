@@ -61,7 +61,7 @@ node upp/tools/verify-in-app.mjs --pkg ~/.upp/store/hello-upp/1.0.0   # passed 1
 - `pack` 默认产出 `.upp.sha256` sidecar（`sha256sum -c` 兼容）；`pack --sign` 产出 ed25519 detached 签名 `.upp.sig.json`（公钥内嵌 + 指纹）；
 - `verify-signature --require [--pubkey <pem>]`：哈希 + 签名 + 指纹钉扎；`install --from` 自动校验，篡改 1 字节即拒绝；
 - `bundle-offline`：一键离线目录（vendored `tools/upp.mjs` + `install.cmd`/`install.sh` + `OFFLINE-MANIFEST.json` + 可选 `.zip`），本机双击等价命令实测三端装完 `failed 0`；
-- `tests/run-all.mjs`：11 步发版门槛（规范 / 协议 / import fixtures / LLM 润色离线 mock / DSH UI 静态检查 / 签名 / 篡改拒绝 / 离线包），本机 11/11；
+- `tests/run-all.mjs`：12 步发版门槛（规范 / 协议 / import fixtures / LLM 润色离线 mock / DSH UI 静态检查 / 签名 / 篡改拒绝 / 离线包 / 全局 CLI 自举），本机 12/12；
 - 边界：自签 + 可选指纹钉扎，**不是** CA/信任链（见 08 §6）。
 
 ### P1.5 可选 LLM 增强（✅ 已实现，默认关闭）

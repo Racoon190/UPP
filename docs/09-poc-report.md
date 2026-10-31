@@ -168,7 +168,7 @@ P1 能力映射（prompts/agents/i18n/recommend 三端落地）完成后，用�
 | --- | --- | --- |
 | `validate`（示例全量） | failed 0（42 项，含 ui/hooks 校验） | 通过 |
 | `build` | 17 个文件（新增 `skills/hello-upp-panel/*`、`hooks/hooks.json`、`hooks/scripts/session-log.mjs`）；`build --check` upToDate=true | 通过 |
-| `tests/run-all.mjs` | 11/11（含 conformance 42、签名/篡改/离线包、DSH UI 静态检查） | 通过 |
+| `tests/run-all.mjs` | 12/12（含 conformance 42、签名/篡改/离线包、DSH UI 静态检查、全局 CLI 自举） | 通过 |
 | `install` + `verify` | 三端 ok；verify 28 项 failed 0 | 通过 |
 | `conformance --hosts` | 70 项 failed 0 | 通过 |
 | DSH 面板技能 | `~/.dsh/skills/hello-upp-panel/` 出现在技能目录（模型可见） | 镜像生效，未渲染面板 |

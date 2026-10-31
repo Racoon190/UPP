@@ -30,6 +30,7 @@ node upp/tools/upp.mjs <command> [options]
 |---|---|---|---|
 | `init` | 从示例脚手架一个新包（改 id/serverName/技能名并 build） | 是 | 新插件起步 |
 | `detect` | 探测三端是否安装、路径、Node 版本 | 否 | 首次接入 / 故障排查 |
+| `setup-cli` | 把 `upp.mjs` 复制到 `~/.upp/bin`，写 `upp`/`upp.cmd` 启动 shim，Windows 追加用户 PATH（`--no-path` 可跳过） | 是（`~/.upp/bin`、用户 PATH） | 一条命令安装（全局 `upp`） |
 | `validate` | 校验 `upp.json` + 包结构（按清单动态，示例 42 项） | 否 | 提交前 / CI |
 | `build` | 由 `upp.json` 生成全部派生物（示例 17 个文件，含面板技能与 hooks） | 是 | 开发循环 |
 | `build --check` | 只比对不写；有漂移则退出码 1 | 否 | CI 防"忘 build 就提交" |
@@ -291,10 +292,10 @@ node tools/verify-in-app.mjs --pkg ~/.upp/store/hello-upp/1.0.0
 - run: node tests/run-all.mjs
 ```
 
-`tests/run-all.mjs` 聚合 11 步：`validate`、`build --check`、`mcp-smoke`（7 项）、`import` fixtures（4 个合成插件）、DSH UI 包静态检查（13 项）、
+`tests/run-all.mjs` 聚合 12 步：`validate`、`build --check`、`mcp-smoke`（7 项）、`import` fixtures（4 个合成插件）、DSH UI 包静态检查（13 项）、全局 CLI 自举（8 项）、
 `analyze-polish`（离线 mock，9 项断言）、`conformance`（30 项）、`pack-sign`、`verify-signature`、
 `tamper-detected`（改 1 字节必须被拒）、`offline-bundle`。
-本机 Node 26 实测 **11/11 步通过**；同一份脚本可在 Windows / macOS / Linux 运行（无 shell 方言依赖）。
+本机 Node 26 实测 **12/12 步通过**；同一份脚本可在 Windows / macOS / Linux 运行（无 shell 方言依赖）。
 
 本地等价：`node tests/run-all.mjs`；只跑 import 矩阵：`node tests/import.test.mjs`；只跑 LLM 润色：`node tests/polish.test.mjs`。
 新增来源格式时，把最小样例加到 `fixtures/`，`import.test.mjs` 自动纳入。

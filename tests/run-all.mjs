@@ -95,8 +95,15 @@ const offOk =
   existsSync(join(offDir, 'OFFLINE-MANIFEST.json')) &&
   existsSync(join(offDir, 'install.cmd')) &&
   existsSync(join(offDir, 'install.sh')) &&
+  existsSync(join(offDir, 'setup-cli.cmd')) &&
+  existsSync(join(offDir, 'setup-cli.sh')) &&
   existsSync(join(offDir, 'tools', 'upp.mjs'));
 step('offline-bundle', Boolean(offline?.signature) && offOk, `dir=${offDir || 'n/a'}`);
+
+// 7. global CLI bootstrap (setup-cli in a temp prefix; no PATH mutation)
+const cliRun = node(join(HERE, 'cli.test.mjs'), []);
+const cliReport = lastJson(cliRun.stdout);
+step('setup-cli', cliRun.status === 0 && cliReport?.failed === 0, `checks=${cliReport?.passed ?? '?'} failed=${cliReport?.failed ?? 'n/a'}`);
 
 const failed = steps.filter((s) => !s.ok).length;
 process.stdout.write(`${JSON.stringify({ steps, passed: steps.length - failed, failed }, null, 2)}\n`);
