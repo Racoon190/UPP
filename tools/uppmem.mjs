@@ -19,10 +19,10 @@ import { runMcpServer } from '../lib/uppmem/mcp-server.mjs'
 import { createTx } from '../lib/uppenv/core/tx.mjs'
 import { detectRoots } from '../lib/uppenv/core/util.mjs'
 
-const TOOL = { name: 'uppmem', version: '1.0.0' }
+const TOOL = { name: 'uppmem', version: '1.1.0' }
 const HERE = path.dirname(fileURLToPath(import.meta.url))
 
-const BOOLEAN = new Set(['json', 'help', 'version', 'force', 'dry-run', 'pull', 'push', 'both', 'live', 'quiet', 'summary'])
+const BOOLEAN = new Set(['json', 'help', 'version', 'force', 'dry-run', 'pull', 'push', 'both', 'live', 'quiet', 'summary', 'remove'])
 const VALUED = new Set(['kind', 'tag', 'tags', 'key', 'scope', 'source', 'limit', 'host', 'o', 'output', 'on-conflict', 'tx-root'])
 
 function parseArgs(argv) {
@@ -289,25 +289,59 @@ async function cmdHosts(args, home) {
   if (args.flags.json) return printJson(rows)
   for (const r of rows) {
     const where = r.paths?.memoryFile ?? r.paths?.skillsDir ?? ''
-    out(`${r.available ? 'ok  ' : 'none'} ${r.host.padEnd(10)} ${r.installed ? '' : 'adapter missing'} ${where}`)
+    const mcp = r.paths?.mcpRegistered ? ' +mcp' : ''
+    out(`${r.available ? 'ok  ' : 'none'} ${r.host.padEnd(10)} ${r.installed ? '' : 'adapter missing'} ${where}${mcp}`)
     if (r.reason) out(`     ${r.reason}`)
   }
   return 0
 }
 
 async function cmdInstall(args, home) {
-  const host = args.flags.host ?? 'dsh'
+  const hosts = parseList(args.flags.host)
+  const wantHosts = hosts.length ? hosts : ['dsh']
   const roots = detectRoots()
   const dryRun = Boolean(args.flags['dry-run'])
-  const ctx = createContext({ host, roots, options: { dryRun }, log: () => {} })
-  const adapter = await loadMemoryAdapter(host, ctx)
-  if (!adapter.install) usageError(`host "${host}" has no install hook`)
-  const tx = createTx(args.flags['tx-root'] ?? path.join(home, 'tx'), { dryRun, label: `install-${host}` })
-  const result = await adapter.install({ dryRun, tx })
-  if (!dryRun) tx.commit()
-  if (args.flags.json) return printJson(result)
-  for (const f of result.files ?? []) out(`${String(f.action).padEnd(8)} ${f.path}`)
-  return 0
+  const remove = Boolean(args.flags.remove)
+  const json = Boolean(args.flags.json)
+  const results = []
+  let failed = 0
+
+  for (const host of wantHosts) {
+    const ctx = createContext({ host, roots, options: { dryRun }, log: () => {} })
+    try {
+      const adapter = await loadMemoryAdapter(host, ctx)
+      if (!adapter.install) {
+        const reason = `host "${host}" has no install hook (${MEMORY_HOSTS.join('|')} are the known hosts)`
+        results.push({ host, ok: false, error: reason, files: [], warnings: [] })
+        if (!json) out(`FAIL     ${host}  ${reason}`)
+        failed += 1
+        continue
+      }
+      const tx = createTx(args.flags['tx-root'] ?? path.join(home, 'tx'), { dryRun, label: `install-${host}` })
+      const result = await adapter.install({ dryRun, tx, remove })
+      if (!dryRun) tx.commit()
+      results.push({ host, ok: true, ...result })
+      if (!json) {
+        for (const f of result.files ?? []) {
+          const detail = f.detail ?? f.skipped ?? ''
+          out(`${String(f.action).padEnd(8)} ${host.padEnd(10)} ${detail || f.path}`)
+          if (detail && f.path) out(`${' '.repeat(8)} ${host.padEnd(10)} ${f.path}`)
+        }
+        for (const w of result.warnings ?? []) out(`         ${host.padEnd(10)} warning: ${w}`)
+      }
+    } catch (err) {
+      results.push({ host, ok: false, error: err?.message ?? String(err), files: [], warnings: [] })
+      if (!json) out(`FAIL     ${host.padEnd(10)} ${err?.message ?? String(err)}`)
+      failed += 1
+    }
+  }
+
+  if (json) printJson(results)
+  else if (!dryRun && !failed && !remove) {
+    const registered = results.flatMap((r) => (r.files ?? []).map((f) => f.server).filter(Boolean))
+    if (registered.length) out(`\nregistered MCP server "${registered[0]}" on ${results.map((r) => r.host).join(', ')} — restart the host to pick it up`)
+  }
+  return failed ? 1 : 0
 }
 
 async function cmdMcp() {
@@ -350,7 +384,7 @@ COMMANDS
   import <file>     merge a bundle (--on-conflict skip|overwrite)
   sync              pull native memory from hosts and/or push the pool back
   hosts             detect DSH / WorkBuddy / Accio memory locations
-  install           install the capture hook for a host (e.g. --host dsh)
+  install           register the pool with a host (skill / MCP server)
   mcp               run a stdio MCP server exposing the pool
   doctor            integrity check
   stats             pool statistics
@@ -359,6 +393,7 @@ OPTIONS
   add:    --kind fact|preference|decision|project|convention|task|note
           --tag a,b  --key semantic.key  --scope global|host:<name>  --source host
   sync:   --host dsh,workbuddy,accio  --pull|--push|--both (default)  --dry-run
+  install:--host dsh,workbuddy,accio  --dry-run  --remove
   common: --json
 
 KEEPING THREE HOSTS IN SYNC
@@ -366,6 +401,11 @@ KEEPING THREE HOSTS IN SYNC
   own memory at it with:  uppmem sync --host workbuddy --both
                           uppmem sync --host accio --both
                           uppmem install --host dsh
+
+REGISTERING THE MCP SERVER (agent-callable memory)
+  uppmem install --host workbuddy        # ~/.codebuddy/mcp.json -> mcpServers.uppmem
+  uppmem install --host accio            # <account>/mcp-servers/custom.json -> servers.uppmem
+  uppmem install --host workbuddy,accio --remove
   Then an MCP-capable agent can use:  uppmem mcp
 `)
   return 0

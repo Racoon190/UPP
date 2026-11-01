@@ -62,7 +62,7 @@ const WB_CLI =
   'D:/Program Files/WorkBuddy/resources/app.asar.unpacked/cli/dist/codebuddy-lite-wb.mjs';
 const UPP_HOME = join(HOME, '.upp');
 const CLI_DIR = join(UPP_HOME, 'bin');
-const VERSION = '1.3.1';
+const VERSION = '1.3.2';
 const KEYS_DIR = join(UPP_HOME, 'keys');
 const SIGNING_KEY = process.env.UPP_SIGNING_KEY ?? join(KEYS_DIR, 'upp-signing.key.pem');
 const SIGNING_PUB = `${SIGNING_KEY.replace(/\.key\.pem$/, '')}.pub.pem`;

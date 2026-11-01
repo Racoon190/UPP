@@ -68,6 +68,9 @@ uppmem hosts                    # 三端记忆位置探测
 uppmem sync --host workbuddy --both          # 默认 both
 uppmem sync --host dsh,workbuddy,accio --dry-run
 uppmem install --host dsh       # 只装采集入口（SKILL.md）
+uppmem install --host workbuddy # 把 uppmem MCP server 注册进 ~/.codebuddy/mcp.json
+uppmem install --host accio     # 注册进 <account>/mcp-servers/custom.json
+uppmem install --host workbuddy,accio --remove   # 反注册（只删 uppmem 这一条）
 uppmem mcp                      # stdio MCP server
 uppmem doctor
 ```
@@ -114,6 +117,20 @@ uppmem mcp     # newline-delimited JSON-RPC 2.0 over stdio
 
 MCP 宿主（包括 DSH 的 MCP 能力、任何支持 stdio MCP 的客户端）配一个 server 命令 `node <upp>/tools/uppmem.mjs mcp` 即可获得**同一份**记忆。
 
+手动配容易写错路径，所以有注册命令：
+
+```bash
+uppmem install --host workbuddy        # ~/.codebuddy/mcp.json -> mcpServers.uppmem
+uppmem install --host accio            # <account>/mcp-servers/custom.json -> servers.uppmem
+uppmem install --host workbuddy,accio --dry-run   # 只看计划
+uppmem install --host workbuddy,accio --remove    # 反注册
+```
+
+- 写进宿主的条目：`{ command:"node", args:["<upp>/tools/uppmem.mjs","mcp"], env:{ UPPMEM_HOME:"~/.uppmem" } }`（Accio 用它的本地 server 形状：`type:local` / `register_mode:gateway` / `command:["node"]` / `environment` / `transport`）
+- **只动 `mcpServers.uppmem`（Accio 是 `servers.uppmem`）这一条**，其它 server 与未知字段逐字节保留；JSON 无效时拒绝改写
+- 幂等：同一定义再跑是 `noop`；`--dry-run` 零写入；写入走 tx（有备份）
+- 改完需要重启宿主进程才会加载新 server（命令会提示）
+
 ## 6. 同步语义（重要）
 
 - `sync --both` = 先 **pull**（宿主 → 池）再 **push**（池 → 宿主）；`--pull`/`--push` 单独执行。
@@ -131,6 +148,7 @@ MCP 宿主（包括 DSH 的 MCP 能力、任何支持 stdio MCP 的客户端）�
 - `--dry-run` 于全新假 HOME：`files-written: 0`。
 - MCP：`initialize` → `protocolVersion 2024-11-05`、`serverInfo.name uppmem` → `tools/list` 5 个工具 → `memory_add` → `memory_search` 命中 → `memory_stats` 计数 1，全链路通过。
 - 真实 DSH profile：`sync --host dsh` 后 `~/.dsh/skills/upp-memory/{SKILL.md,MEMORY.md}` 生成，会话技能目录出现 `upp-memory`（说明技能热加载生效）。
+- 真实 MCP 注册：`uppmem install --host workbuddy,accio` 后 `~/.codebuddy/mcp.json` 的 `mcpServers` 从 `doc-toolkit,sheet-toolkit,log-toolkit` 变为 `…,uppmem`，Accio `servers` 同理，**其它条目 JSON 逐字节未变**；用注册出来的配置原样 spawn → `serverInfo uppmem` / `2024-11-05` / 5 个工具全部应答。第二次运行 `noop`，`--remove` 后两条消失、其它 server 保留。假 HOME 套件为此新增 6 项断言（34/34）。
 
 ## 8. 边界与安全
 

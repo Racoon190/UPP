@@ -55,7 +55,7 @@ node tools/upp.mjs doctor        # 自检
 
 ```
 OK  cli.shim   C:\Users\<你>\.upp\bin\upp.cmd
-OK  cli.version 1.3.1
+OK  cli.version 1.3.2
 OK  cli.env    uppenv 1.1.0 (schema 1)
 OK  cli.tool   upptool 1.0.0 (schema upptool/1)
 OK  cli.mem    uppmem 1.0.0 (schema uppmem/1)
@@ -91,6 +91,9 @@ upp mem search 中文                                 # 随时检索
 - 权威存储：`~/.uppmem/pool/`；给模型读的快照：`~/.uppmem/MEMORY.md`
 - 三端落点：DSH 自动生成 `upp-memory` 技能；WorkBuddy / Accio 在各自记忆文件里追加一个托管区（原生内容一字不动）
 - 支持 MCP 的客户端可以直接挂：`node <仓库>/tools/uppmem.mjs mcp`
+- 一条命令替你写进宿主配置（只加 `uppmem` 这一条，其它 server 不动）：
+  `upp mem install --host workbuddy` / `upp mem install --host accio`
+  （加 `--remove` 反注册，加 `--dry-run` 只看计划；装完重启宿主进程生效）
 - 先看效果不写入：`upp mem sync --host dsh,workbuddy,accio --both --dry-run`
 
 ### 4.2 重复劳动固化成工具（`upptool`）

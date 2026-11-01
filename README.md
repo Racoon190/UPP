@@ -112,6 +112,9 @@ node tools/uppmem.mjs add "用户偏好中文回答" --kind preference --tag lan
 node tools/uppmem.mjs search "语言"
 node tools/uppmem.mjs sync --host workbuddy,accio --both   # 拉取原生记忆 + 回写托管区
 node tools/uppmem.mjs install --host dsh                   # 给 DSH 装 upp-memory 技能
+node tools/uppmem.mjs install --host workbuddy             # 把 mem MCP server 写进 mcp.json
+node tools/uppmem.mjs install --host accio                 # 写进 accio 账号的 custom.json
+node tools/uppmem.mjs install --host workbuddy,accio --remove   # 反注册（只删 uppmem 这一条）
 node tools/uppmem.mjs mcp                                  # 或作为 MCP server 挂给任意宿主
 ```
 
