@@ -62,7 +62,7 @@ const WB_CLI =
   'D:/Program Files/WorkBuddy/resources/app.asar.unpacked/cli/dist/codebuddy-lite-wb.mjs';
 const UPP_HOME = join(HOME, '.upp');
 const CLI_DIR = join(UPP_HOME, 'bin');
-const VERSION = '1.3.0';
+const VERSION = '1.3.1';
 const KEYS_DIR = join(UPP_HOME, 'keys');
 const SIGNING_KEY = process.env.UPP_SIGNING_KEY ?? join(KEYS_DIR, 'upp-signing.key.pem');
 const SIGNING_PUB = `${SIGNING_KEY.replace(/\.key\.pem$/, '')}.pub.pem`;
@@ -1386,6 +1386,18 @@ function packEntries(pkg) {
   return files.map((file) => ({ name: relative(pkg, file).replaceAll('\\', '/'), data: readFileSync(file) }));
 }
 
+/** Rename every literal template reference (`hello-upp`, keys included) inside a JSON value. */
+function deepReplaceId(value, from, to) {
+  if (typeof value === 'string') return value.split(from).join(to);
+  if (Array.isArray(value)) return value.map((v) => deepReplaceId(v, from, to));
+  if (value && typeof value === 'object') {
+    const out = {};
+    for (const [k, v] of Object.entries(value)) out[deepReplaceId(k, from, to)] = deepReplaceId(v, from, to);
+    return out;
+  }
+  return value;
+}
+
 /** Scaffold a new package from examples/hello-upp, rewriting identity everywhere. */
 function cmdInit(id, dir) {
   if (!/^[a-z][a-z0-9-]{2,63}$/.test(id ?? '')) throw new Error(`invalid id "${id}" (kebab-case, 3-63 chars)`);
@@ -1413,7 +1425,8 @@ function cmdInit(id, dir) {
     workbuddy: { serverName },
     accio: { serverName, pluginId: id },
   };
-  writeFileSync(mPath, `${JSON.stringify(m, null, 2)}\n`);
+  const rewritten = deepReplaceId(m, 'hello-upp', id);
+  writeFileSync(mPath, `${JSON.stringify(rewritten, null, 2)}\n`);
   const skillFile = join(dest, 'skills', id, 'SKILL.md');
   const skill = readFileSync(skillFile, 'utf8')
     .replace(/^name: .*$/m, `name: ${id}`)
@@ -1517,15 +1530,23 @@ function cmdVerify(pkg, wanted) {
   } catch {}
   const all = [...verifyDsh(pkg, hosts, m), ...verifyWorkBuddy(hosts, m), ...verifyAccio(hosts, m)];
   const hostOf = (name) => (name.startsWith('dsh.') ? 'dsh' : name.startsWith('workbuddy.') ? 'workbuddy' : name.startsWith('accio.') ? 'accio' : 'shared');
-  const checks = wanted?.length ? all.filter((c) => hostOf(c.check) === 'shared' || wanted.includes(hostOf(c.check))) : all;
+  const checks = wanted?.includes('none')
+    ? all.filter((c) => hostOf(c.check) === 'shared')
+    : wanted?.length
+      ? all.filter((c) => hostOf(c.check) === 'shared' || wanted.includes(hostOf(c.check)))
+      : all;
+  const offlineSpec = wanted?.includes('none')
+    ? validateManifest(pkg, m).map((c) => ({ ...c, check: `spec.${c.check}` }))
+    : [];
   const report = {
     package: pkg,
     id: m.id,
     serverName: m.serverName,
+    offline: offlineSpec.length ? `${offlineSpec.filter((c) => c.ok).length}/${offlineSpec.length}` : null,
     smoke: smoke.status === 0 ? 'pass' : 'fail',
     smokeChecks: smokeReport?.checks?.map((c) => `${c.name}:${c.ok ? 'ok' : 'FAIL'}`),
-    checks,
-    failed: checks.filter((c) => !c.ok).length + (smoke.status === 0 ? 0 : 1),
+    checks: [...offlineSpec, ...checks],
+    failed: [...offlineSpec, ...checks].filter((c) => !c.ok).length + (smoke.status === 0 ? 0 : 1),
   };
   log(report);
   process.exitCode = report.failed > 0 ? 1 : 0;
@@ -1557,6 +1578,26 @@ async function cmdDoctor() {
     installedVersion && repoVersion && installedVersion === repoVersion
       ? ok('cli.version', installedVersion)
       : fail('cli.version', installedVersion ? `${installedVersion} != ${repoVersion} - run: upp self-update` : 'not installed - run: node tools/upp.mjs setup-cli'),
+  );
+  // Sub-toolchains live beside the installed CLI (~/.upp/bin/{tools,lib}); without them `upp env|tool|mem` cannot run.
+  for (const [name, command] of [['uppenv', 'env'], ['upptool', 'tool'], ['uppmem', 'mem']]) {
+    const cliFile = join(CLI_DIR, 'tools', `${name}.mjs`);
+    if (!existsSync(cliFile)) {
+      checks.push(fail(`cli.${command}`, `missing ${cliFile} - run: upp setup-cli`));
+      continue;
+    }
+    const res = spawnSync(process.execPath, [join(CLI_DIR, 'upp.mjs'), command, 'version'], { encoding: 'utf8', timeout: 30000 });
+    checks.push(
+      res.status === 0
+        ? ok(`cli.${command}`, (res.stdout ?? '').trim().split(String.fromCharCode(10)).filter(Boolean).slice(-1)[0] ?? name)
+        : fail(`cli.${command}`, `exit ${res.status} - run: upp setup-cli`),
+    );
+  }
+  const memoryPool = join(HOME, '.uppmem');
+  checks.push(
+    existsSync(memoryPool)
+      ? ok('mem.pool', `${memoryPool} — run: upp mem sync --host dsh,workbuddy,accio --both`)
+      : fail('mem.pool', 'no shared pool yet - run: upp mem add "<fact>"'),
   );
   checks.push(hosts.dsh.available ? ok('dsh.profile', hosts.dsh.profileDir) : fail('dsh.profile', 'not found'));
   checks.push(hosts.workbuddy.available ? ok('workbuddy.home', hosts.workbuddy.skillsDir) : fail('workbuddy.home', 'not found'));
@@ -1717,11 +1758,36 @@ function writeShims(dir) {
   return [join(dir, 'upp.cmd'), join(dir, 'upp')];
 }
 
+const SUB_TOOLCHAINS = ['uppenv', 'upptool', 'uppmem'];
+
+/** Copy the sibling sub-toolchains + their lib/ trees next to the installed upp.mjs, so `upp env|tool|mem` work from any cwd. */
+function installSubToolchains(dir) {
+  const toolsDir = join(dir, 'tools');
+  const libDir = join(dir, 'lib');
+  mkdirSync(toolsDir, { recursive: true });
+  mkdirSync(libDir, { recursive: true });
+  const installed = [];
+  for (const name of SUB_TOOLCHAINS) {
+    const src = join(REPO, 'tools', `${name}.mjs`);
+    if (existsSync(src)) {
+      copyFileSync(src, join(toolsDir, `${name}.mjs`));
+      installed.push(`tools/${name}.mjs`);
+    }
+    const libSrc = join(REPO, 'lib', name);
+    if (existsSync(libSrc)) {
+      cpSync(libSrc, join(libDir, name), { recursive: true, force: true });
+      installed.push(`lib/${name}/`);
+    }
+  }
+  return installed;
+}
+
 function cmdSetupCli() {
   const dir = resolve(flag('prefix', CLI_DIR));
   mkdirSync(dir, { recursive: true });
   const script = join(dir, 'upp.mjs');
   copyFileSync(join(REPO, 'tools', 'upp.mjs'), script);
+  const subToolchains = installSubToolchains(dir);
   const shims = writeShims(dir);
   const pathInfo = hasFlag('no-path') ? { added: false, skipped: true } : ensureUserPath(dir);
   const probe = spawnSync(
@@ -1730,17 +1796,26 @@ function cmdSetupCli() {
     { encoding: 'utf8', timeout: 30000 },
   );
   const probeOk = probe.status === 0 && (probe.stdout ?? '').includes('"dsh"');
+  const delegates = SUB_TOOLCHAINS.map((name) => {
+    const command = name === 'uppenv' ? 'env' : name === 'upptool' ? 'tool' : 'mem';
+    const res = spawnSync(process.execPath, [script, command, 'version'], { encoding: 'utf8', timeout: 30000 });
+    return { toolchain: name, ok: res.status === 0, version: (res.stdout ?? '').trim().split(String.fromCharCode(10)).filter(Boolean).slice(-1)[0] || null };
+  });
+  const delegatesOk = delegates.every((d) => d.ok);
   log({
     cli: {
       dir,
       script,
       shims,
+      subToolchains,
       path: pathInfo,
       probe: probeOk ? 'ok' : 'failed',
       probeStderr: probeOk ? null : (probe.stderr ?? '').trim(),
+      delegates,
+      ready: probeOk && delegatesOk,
     },
   });
-  if (!probeOk) process.exitCode = 1;
+  if (!probeOk || !delegatesOk) process.exitCode = 1;
 }
 
 /** In-place toolchain upgrade: upp self-update [--from <upp.mjs|dir>] [--prefix <dir>] [--force] */
@@ -1773,6 +1848,7 @@ function cmdSelfUpdate() {
     return;
   }
   mkdirSync(dir, { recursive: true });
+  const subToolchains = installSubToolchains(dir);
   let backup = null;
   if (existsSync(target)) {
     backup = `${target}.bak-${new Date().toISOString().replace(/[:.]/g, '-')}`;
@@ -2750,15 +2826,28 @@ if (command === '--version' || command === '-v' || command === 'version') {
   case 'unpack':
     cmdUnpack(flag('from'), flag('dir'));
     break;
-  case 'init':
-    cmdInit(flag('id'), flag('dir'));
+  case 'init': {
+    // `upp init my-plugin [../dir]` is the beginner spelling; `--id/--dir` still work.
+    const first = argv[1] && !argv[1].startsWith('-') ? argv[1] : undefined;
+    const second = argv[2] && !argv[2].startsWith('-') ? argv[2] : undefined;
+    cmdInit(flag('id') ?? first, flag('dir') ?? second);
     break;
+  }
   case 'install':
     await cmdInstall(pkg);
     break;
-  case 'verify':
-    cmdVerify(pkg, (flag('hosts', 'dsh,workbuddy,accio')).split(',').map((s) => s.trim()));
+  case 'verify': {
+    // Before install there is nothing to verify on the hosts, so default to the offline checks.
+    const hostsFlag = flag('hosts');
+    const installed = existsSync(statePath(pkg));
+    const wanted = hostsFlag
+      ? hostsFlag.split(',').map((s) => s.trim())
+      : installed
+        ? ['dsh', 'workbuddy', 'accio']
+        : ['none'];
+    cmdVerify(pkg, wanted);
     break;
+  }
   case 'conformance':
     await cmdConformance(pkg);
     break;
@@ -2792,9 +2881,9 @@ if (command === '--version' || command === '-v' || command === 'version') {
     // Delegate to a sibling toolchain (same directory), forwarding argv verbatim.
     const cliName = command === 'env' ? 'uppenv.mjs' : command === 'tool' ? 'upptool.mjs' : 'uppmem.mjs'
     const toolLabel = command === 'env' ? 'uppenv' : command === 'tool' ? 'upptool' : 'uppmem'
-    const cliPath = join(HERE, cliName);
-    if (!existsSync(cliPath)) {
-      log({ error: `${toolLabel} toolchain not found`, expected: toPosix(cliPath), hint: `restore tools/${cliName} + lib/${toolLabel}/` });
+    const cliPath = [join(HERE, 'tools', cliName), join(HERE, cliName)].find((c) => existsSync(c));
+    if (!cliPath) {
+      log({ error: `${toolLabel} toolchain not found`, expected: toPosix(join(HERE, 'tools', cliName)), hint: `restore tools/${cliName} + lib/${toolLabel}/, then run: upp setup-cli` });
       process.exitCode = 1;
       break;
     }

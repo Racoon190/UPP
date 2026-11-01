@@ -30,6 +30,8 @@
 
 **P1 规划**：[07-migration-and-analyzer.md](07-migration-and-analyzer.md)（迁移器/分析器）、[08-security-and-supply-chain.md](08-security-and-supply-chain.md)（签名、供应链、回滚）
 
+**新手看这里**：[19-quickstart.md](19-quickstart.md) —— 一台新电脑从零到三端可用的最短路径
+
 ## 全部文档
 
 | 文档 | 一句话 |
@@ -53,5 +55,6 @@
 | [16-uppenv.md](16-uppenv.md) | **uppenv 环境镜像**：三端 插件/技能/MCP/工具/记忆 的 Docker 式 export/import/rollback、真机数据、边界 |
 | [17-upptool.md](17-upptool.md) | **upptool 可复用工具**：登记脚本/命令/批处理 → 本地直跑，去重与近似推荐，估算省下的 token |
 | [18-uppmem.md](18-uppmem.md) | **uppmem 共享记忆池**：DSH/WorkBuddy/Accio 同一份记忆，sync 托管区 + stdio MCP，LWW/幂等/dry-run |
+| [19-quickstart.md](19-quickstart.md) | **新手快速开始**：一键部署、三端共享记忆、复用工具、换机迁移、从零造三端通用插件、FAQ |
 
 > `upp import` / `upp analyze`（构想 ③）的实现与真机验收见 [07-migration-and-analyzer.md](07-migration-and-analyzer.md) §2.5。

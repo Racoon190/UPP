@@ -146,6 +146,8 @@ upp uninstall --pkg examples/doc-toolkit --hosts dsh,workbuddy,accio
 
 | 现象 | 处理 |
 |---|---|
+| **全新电脑怎么装** | Windows 双击仓库根的 `install.cmd`；macOS/Linux `sh install.sh`；详见 [19-quickstart.md](19-quickstart.md) |
+| `upp mem` / `upp tool` / `upp env` 报 `unknown command` | 全局命令是旧版：`node tools/upp.mjs setup-cli`（会把 `uppenv/upptool/uppmem` 子工具链一起装到 `~/.upp/bin/{tools,lib}`） |
 | 装上后工具没出现（DSH） | MCP 是热加载；client UI 面板需重启 DSH 一次；`upp doctor` 看 `dsh.profile` |
 | `upp` 命令找不到 | `setup-cli` 改了用户 PATH，**新开终端**；或直接用 `node ~/.upp/bin/upp.mjs` |
 | WorkBuddy 技能没进菜单 | 确认 `~/.workbuddy/skills/<id>/SKILL.md` 存在；3 秒热重载，重启客户端亦可 |

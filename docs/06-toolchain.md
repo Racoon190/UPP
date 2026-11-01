@@ -30,7 +30,7 @@ node upp/tools/upp.mjs <command> [options]
 |---|---|---|---|
 | `init` | 从示例脚手架一个新包（改 id/serverName/技能名并 build） | 是 | 新插件起步 |
 | `detect` | 探测三端是否安装、路径、Node 版本 | 否 | 首次接入 / 故障排查 |
-| `setup-cli` | 把 `upp.mjs` 复制到 `~/.upp/bin`，写 `upp`/`upp.cmd` 启动 shim，Windows 追加用户 PATH（`--no-path` 可跳过） | 是（`~/.upp/bin`、用户 PATH） | 一条命令安装（全局 `upp`） |
+| `setup-cli` | 把 `upp.mjs` + `uppenv/upptool/uppmem` 子工具链（`tools/` 与 `lib/`）复制到 `~/.upp/bin`，写 `upp`/`upp.cmd` shim，Windows 追加用户 PATH（`--no-path` 可跳过），并逐个子工具链探活 | 是（`~/.upp/bin` 含 `tools/`、`lib/`、用户 PATH） | 一条命令安装（全局 `upp`，含 `upp env/tool/mem`）；新手用仓库根的 `install.cmd` / `install.sh` 包了一层 Node 版本检查与自检 |
 | `self-update` | 原地升级 `~/.upp/bin/upp.mjs`：`--from <upp.mjs|dir>`（默认仓库工具链）、`--force` 允许同版本重装/降级；版本比较 + 自动备份 `.bak-<ts>` + 重建 shim + `--version` 自检 | 是（`~/.upp/bin`） | 工具链升级（离线、一条命令）；`upp --version` 查看当前版本 |
 | `validate` | 校验 `upp.json` + 包结构（按清单动态，示例 42 项） | 否 | 提交前 / CI |
 | `build` | 由 `upp.json` 生成全部派生物（示例 17 个文件，含面板技能与 hooks） | 是 | 开发循环 |
@@ -40,7 +40,7 @@ node upp/tools/upp.mjs <command> [options]
 | `install` | 安装到宿主；`--from <x.upp>` 先入 store | 是 | 用户唯一需要的命令 |
 | `import` | 静态抽取既有插件 → 生成 UPP 包（无上游则 describe 兜底，有上游 MCP 则生成代理 runtime） | 是（`--out`） | 迁移 DSH/WorkBuddy/Accio 既有插件 |
 | `analyze` | `import` + 复刻简报 `ANALYSIS.md` + `contract.json`（按 JSON/4 估算 token）；`--polish` 可选 LLM 润色（默认关闭） | 是（`--out`） | 给另两端/模型做低 token 复刻 |
-| `verify` | 断言宿主侧安装状态与 live 入口 | 否 | 安装后自检 |
+| `verify` | 断言宿主侧安装状态与 live 入口；**未安装时自动退化为离线检查**（spec 校验 + MCP 冒烟），安装后（存在 `.upp-install.json`）默认查三端，也可 `--hosts` 指定 | 否 | 安装前/安装后都能当自检 |
 | `conformance` | 规范 + MCP + CLI + 等价性测试 | 否 | 发版门槛 |
 | `doctor` | 探测三端 CLI/Gateway/进程 | 否 | 装不上时先跑它 |
 | `verify-in-app`（独立脚本） | 只读检查宿主运行态：进程、技能缓存、MCP 健康 | 否 | 补最后两格 / 用户自助排障 |
@@ -54,7 +54,7 @@ node upp/tools/upp.mjs <command> [options]
 
 ```bash
 # 1) 脚手架（或手写三样东西，模板见 examples/hello-upp）
-node upp/tools/upp.mjs init --id my-plugin --dir ../my-plugin
+node upp/tools/upp.mjs init --id my-plugin --dir ../my-plugin   # 也支持: upp init my-plugin
 # 生成：upp.json / runtime/server.mjs / skills/my-plugin/SKILL.md + 五份派生清单
 upp/
   upp.json          # 唯一真源：id/version/runtime/tools/skills/hosts/permissions
