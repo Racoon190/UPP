@@ -47,7 +47,7 @@ Rules:
 - Params are validated against `args` (unknown keys rejected). Booleans/numbers are coerced.
 - Default response is **brief**: arrays capped at 10 items and strings at 200 chars unless `params.full === true`. The envelope says `"truncated": true` when a cap hit.
 - **Id scheme**: namespaced `group.thing` matching `/^[a-z][a-z0-9]*\.[a-z][a-z0-9.-]*$/`. The only bare ids allowed are the overview singletons `status` and `doctor` (overall rule `/^[a-z][a-z0-9]*(\.[a-z][a-z0-9.-]*)?$/` + that two-id allowlist; any other bare id is a contract violation and fails `tools/test-uppgui.mjs`).
-- **Danger rule**: any id whose last segment is `rm`, `rollback`, `import`, `pack`, `install` or `uninstall` MUST set `danger: true` (UI requires confirmation; agents should dry-run first).
+- **Danger rule**: any id whose last segment is `rm`, `rollback`, `import`, `pack`, `install` or `uninstall` MUST set `danger: true` (UI requires confirmation; agents should dry-run first). Single allowlisted exception (v1.5): `migrate.pack` — it only writes a brand-new image file and never mutates a host, so it stays `danger: false`. Conversely, `migrate.apply` mutates hosts but has no destructive suffix, so it MUST set `danger: true`; `tools/test-uppgui.mjs` asserts both the suffix rule and these two explicit ids.
 
 ## 2. HTTP API (localhost only)
 

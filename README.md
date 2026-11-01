@@ -11,7 +11,7 @@
 
 | 系统 | 操作 |
 |---|---|
-| Windows | 双击仓库根目录的 **`install.cmd`**；想用图形界面就再双击 `UPP-GUI-Setup-1.4.0.exe` |
+| Windows | 双击仓库根目录的 **`install.cmd`**；想用图形界面就再双击 `UPP-GUI-Setup-1.5.0.exe` |
 | macOS / Linux | `sh install.sh`（图形界面目前只出 Windows 安装包，其他平台用 `node tools/uppgui.mjs`） |
 
 它检查 Node ≥ 20 → 安装全局命令 `upp`（连同 `upp env` / `upp tool` / `upp mem` 三个子工具链）→ 跑 `upp doctor` 自检。
@@ -122,7 +122,7 @@ node tools/uppmem.mjs mcp                                  # 或作为 MCP serve
 
 ## 可视化 + Agent 控制台（`uppgui`，可选）
 
-双击 `UPP-GUI-Setup-1.4.0.exe` 安装后，桌面上会出现 **UPP GUI**：一个本地网页界面，把上面所有命令变成点按操作，并同时把它自己暴露成 MCP server 给 agent 用。
+双击 `UPP-GUI-Setup-1.5.0.exe` 安装后，桌面上会出现 **UPP GUI**：一个本地网页界面，把上面所有命令变成点按操作，并同时把它自己暴露成 MCP server 给 agent 用。
 
 ```bash
 node tools/uppgui.mjs                    # 起本地服务并打开浏览器（默认带随机 token）
@@ -135,8 +135,19 @@ node tools/build-gui.mjs                 # 重新打 payload + exe + 便携 zip�
 - **省 token**：界面每个按钮都标注等价 CLI/MCP 调用；MCP 只暴露 2 个工具（`tools/list` = 1274 B），`upp_action` 默认 brief（数组 10 条、字符串 200 字符），要看全量才传 `full:true`。agent 不必再翻文档猜命令。
 - **agent 可操作**：`uppgui --mcp` 或 `uppgui.exe --mcp` 直接挂到任意 MCP 客户端；`upp_catalog` 返回 31 个 action 的分组清单。
 - **一键自动化**：记忆增删查同步、工具注册/运行、环境镜像导出导入回滚、插件 init/validate/verify/pack/install 全部在界面里完成，写入类操作有 dry-run 与危险标记。
+- **一键换机**：界面里有「换机」工作区，把 export → 传输 → 校验 → 预演 → 导入串成 5 步向导；每步都出交接卡（文件、大小、sha256、签名指纹）与等价 CLI，导入是事务，出问题一键回滚。
 
 详见 [docs/20-uppgui.md](docs/20-uppgui.md)。
+
+### 发布自动化（tag → exe）
+
+推一个版本 tag 就会自动构建并发布安装包，不再手动传 105 MB：
+
+```bash
+git tag -a upp-v1.5.0 -m "UPP GUI 换机向导" && git push origin upp-v1.5.0
+```
+
+`.github/workflows/release.yml` 在 `windows-latest` 上先跑完整 18 步门槛，再用 `node tools/build-gui.mjs` 出 exe/便携包，冒烟 `--version`/`selftest`/`--cli` 后挂到对应 Release；Release 说明来自 `docs/releases/<tag>.md`（缺省用 `docs/releases/_template.md`）。手动重跑：Actions → release → Run workflow，填 tag 即可。
 
 可选：让分析器用模型润色复刻摘要（**默认关闭**，只发 contract 元数据，不发技能正文/源码）：
 

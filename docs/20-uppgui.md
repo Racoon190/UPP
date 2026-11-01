@@ -2,10 +2,10 @@
 
 > 一句话：把 `upp` / `uppenv` / `upptool` / `uppmem` 收进一个本地面板（只听 `127.0.0.1` + token），普通用户双击 exe 就能用，agent 通过 `uppgui --mcp` 的两个工具拿到**同一份 action catalog**——人看得见、模型买得起。
 
-- 状态：v1 已实现并真机跑通（2026-11-01，Windows 11，Node v26.12.0；版本 **upp 1.4.0 / uppgui 1.4.0**，`uppgui status` 会打印三端工具链版本）
+- 状态：v1.5 已实现并真机跑通（2026-11-01，Windows 11，Node v26.12.0；版本 **upp 1.5.0 / uppgui 1.5.0**，`uppgui status` 会打印三端工具链版本）
 - 入口：`upp/tools/uppgui.mjs`（CLI）+ `lib/uppgui/{actions,server,mcp}.mjs` + `lib/uppgui/ui/`（原生 HTML/CSS/JS，零运行时依赖、无 CDN）
 - 打包：`node tools/build-gui.mjs` → `dist/uppgui.exe`（Node SEA 单文件）、`dist/payload.zip`、`dist/upp-gui-<version>.zip`、`dist/UPP-GUI-Setup-<version>.exe`
-- 验收：`node tools/test-uppgui.mjs` 共 64 项检查（静态 7 + catalog 5 + CLI 1 + HTTP 15 + 31 个 action smoke + MCP 4 + 打包 1），全部 PASS（约 8 s）
+- 验收：`node tools/test-uppgui.mjs` 共 75 项检查（静态、catalog、HTTP、MCP、打包 + 36 个 action smoke + 5 项换机向导），全部 PASS（约 12 s）
 
 ## 1. 为什么有 GUI
 
@@ -13,7 +13,7 @@
 
 1. **一眼看全**：一个页面同时呈现三端各自的插件、技能、MCP、工具、记忆；`status` / `doctor` 把「能不能用」变成红绿点。
 2. **危险操作要二次确认**：`mem.rm`、`env.import`、`env.rollback`、`plugin.install/pack`、`mem.sync` 标记 `danger:true`，UI 会先确认再发请求；CLI/agent 走同一套 action，不会有人绕过确认。
-3. **给 agent 一个便宜的入口**：MCP 只暴露 `upp_action` + `upp_catalog` 两个工具，models 不需要背 31 个 schema（实测 `tools/list` 仅 1274 字节）。
+3. **给 agent 一个便宜的入口**：MCP 只暴露 `upp_action` + `upp_catalog` 两个工具，models 不需要背 36 个 schema（实测 `tools/list` 仅 1348 字节）。
 
 它不联网、不装依赖、不改系统代理；唯一监听的地址是 `127.0.0.1`。
 
@@ -49,9 +49,9 @@ node tools/uppgui.mjs mcp
 
 传输是**换行分隔的 JSON-RPC 2.0**（stdout 走协议、stderr 走日志），协议版本 `2024-11-05`，`serverInfo.name = "uppgui"`。agent 用 `upp_catalog` 查 id、用 `upp_action` 执行，读操作优先、写操作先 dry-run。
 
-## 3. 工作区（catalog 驱动，实测 5 组 + 日志控制台）
+## 3. 工作区（catalog 驱动，实测 6 组 + 日志控制台）
 
-导航不是写死的：`/api/catalog` 返回什么，左侧栏就渲染什么。实测 5 个 action 组，加底部日志控制台共 6 个可视区。
+导航不是写死的：`/api/catalog` 返回什么，左侧栏就渲染什么。实测 6 个 action 组，加底部日志控制台共 7 个可视区。
 
 | 可视区 | 组 id | actions | 主要用途 |
 |---|---|---|---|
@@ -59,48 +59,36 @@ node tools/uppgui.mjs mcp
 | 记忆 | `memory` | `mem.*`（11 个） | 共享记忆的增删改查、同步、宿主安装 |
 | 工具 | `tools` | `tool.*`（6 个） | 工具注册表浏览、推荐、试跑 |
 | 环境镜像 | `env` | `env.*`（7 个） | 扫描、导出/导入、校验、回滚 |
+| 换机 | `migrate` | `migrate.*`（5 个） | 旧机打包 → 新机核对 → 预演 → 事务导入回滚 |
 | 插件 | `plugin` | `plugin.*`（6 个） | 识别、初始化、校验、打包、安装 |
 | 日志控制台 | — | `GET /api/log` | 每 2s 轮询，按 level 过滤，可暂停 |
 
-## 4. action 目录（31 个，实测）
+## 4. action 目录（36 个 / 6 组，实测）
 
-`catalog()` 是唯一事实来源：UI、HTTP `/api/catalog`、MCP `upp_catalog`、CLI `uppgui catalog` 都从它生成。`*` 后的参数是必填。
+`catalog()` 是唯一事实来源：UI、HTTP `/api/catalog`、MCP `upp_catalog`、CLI `uppgui catalog` 都从它生成。下表每个 id 后是它的关键参数（`*` 为必填；`danger` 见 §9）。
 
-| id | 作用 | 关键参数 |
-|---|---|---|
-| `status` | 三端状态总览 | — |
-| `doctor` | 跑 `upp doctor` 体检 | `timeoutMs` |
-| `mem.list` | 列记忆条目 | `kind` `tag` `limit` |
-| `mem.search` | 全文检索 | `query*` `kind` `limit` |
-| `mem.get` | 取单条（含正文） | `ref*` |
-| `mem.add` | 写一条记忆 | `text*` `kind` `key` `tags` |
-| `mem.update` | 改一条记忆 | `ref*` `text` `kind` `tags` |
-| `mem.rm` | 删一条（danger） | `ref*` |
-| `mem.stats` | 记忆统计 | — |
-| `mem.sync` | 同步托管区（danger，默认 dry-run） | `hosts` `direction` `dryRun` |
-| `mem.install` | 把记忆挂到宿主（默认 dry-run） | `hosts` `remove` `dryRun` |
-| `mem.hosts` | 列宿主发现结果 | — |
-| `tool.list` | 列工具 | `tag` `kind` `q` |
-| `tool.show` | 工具详情 | `id*` |
-| `tool.suggest` | 按任务推荐工具 | `text*` `limit` |
-| `tool.run` | 试跑工具 | `id*` `args` `timeoutMs` `input` `cwd` |
-| `tool.add` | 登记工具 | `path` `name` `runtime` `command` `tags` |
-| `tool.stats` | 工具运行统计 | — |
-| `env.scan` | 扫三端环境 | `hosts` `kinds` |
-| `env.export` | 导出 `.uppenv` 镜像 | `out` `hosts` `kinds` `sign` `probeTools` |
-| `env.import` | 导入镜像（danger，默认 dry-run） | `file*` `dryRun` `onConflict` `requireSignature` |
-| `env.verify` | 校验镜像签名/一致性 | `file*` `requireSignature` |
-| `env.inspect` | 只读摘要 | `file*` |
-| `env.rollback` | 回滚到事务点（danger） | `tx` |
-| `env.tools` | 工具清单视图 | `hosts` `live` |
-| `plugin.detect` | 识别三端插件 | — |
-| `plugin.init` | 生成插件骨架 | `id*` `dir` |
-| `plugin.validate` | 契约校验 | `pkg*` |
-| `plugin.verify` | 三端安装前验证 | `pkg*` `hosts` |
-| `plugin.pack` | 打 `.upp` 包（danger） | `pkg*` `out` |
-| `plugin.install` | 装包（danger） | `from*` |
+| 组 | actions（关键参数） |
+|---|---|
+| `overview` | `status`；`doctor`（`timeoutMs`） |
+| `memory` | `mem.list`（`kind` `tag` `limit`）；`mem.search`（`query*` `kind` `limit`）；`mem.get`（`ref*`）；`mem.add`（`text*` `kind` `key` `tags`）；`mem.update`（`ref*` `text` `kind` `tags`）；`mem.rm`（`ref*`，danger）；`mem.stats`；`mem.sync`（`hosts` `direction` `dryRun`，danger）；`mem.install`（`hosts` `remove` `dryRun`）；`mem.hosts` |
+| `tools` | `tool.list`（`tag` `kind` `q`）；`tool.show`（`id*`）；`tool.suggest`（`text*` `limit`）；`tool.run`（`id*` `args` `timeoutMs` `input` `cwd`）；`tool.add`（`path` `name` `runtime` `command` `tags`）；`tool.stats` |
+| `env` | `env.scan`（`hosts` `kinds`）；`env.export`（`out` `hosts` `kinds` `sign` `probeTools`）；`env.import`（`file*` `dryRun` `onConflict` `requireSignature`，danger）；`env.verify`（`file*` `requireSignature`）；`env.inspect`（`file*`）；`env.rollback`（`tx`，danger）；`env.tools`（`hosts` `live`） |
+| `migrate` | `migrate.plan`（`hosts` `kinds`）；`migrate.pack`（`out` `hosts` `kinds` `sign` `probeTools` `force`）；`migrate.card`（`file*`）；`migrate.preview`（`file*` `hosts` `kinds` `onConflict` `requireSignature`）；`migrate.apply`（`file*` 等同上，danger） |
+| `plugin` | `plugin.detect`；`plugin.init`（`id*` `dir`）；`plugin.validate`（`pkg*`）；`plugin.verify`（`pkg*` `hosts`）；`plugin.pack`（`pkg*` `out`，danger）；`plugin.install`（`from*`，danger） |
 
 `brief` 是默认值：数组最多 10 条、长字符串 200 字符，命中时顶层 `truncated:true`；需要全量就传 `full:true`（HTTP body 或 MCP 参数）。参数校验很硬：未知 action / 未知参数 / 缺必填都会返回 `ok:false + hint`，`hint` 里直接给出可用 id 或参数名。
+
+### 4.1 换机向导（v1.5 新增，5 步）
+
+`migrate` 组把「换电脑」做成向导：`migrate.plan` 只读体检（3 端探测 + 资产统计 + 推荐参数 + `steps[]`），UI 按 `steps[]` 渲染进度条。
+
+1. `migrate.pack`：导出 `.uppenv` 并生成交接卡（文件、大小、sha256、签名指纹、下一步）。
+2. 手动拷文件到新机器（U 盘 / 网盘 / scp），顺手核对 sha256。
+3. `migrate.card`：核对大小/哈希/签名；坏镜像返回 `valid:false + problems`，拒绝导入。
+4. `migrate.preview`：零写入 dry-run，每个资产给出 create/update/noop/skip。
+5. `migrate.apply`：事务导入，返回 `tx` 与 `upp env rollback <tx>`。
+
+`migrate.pack` 的 id 虽以 `.pack` 结尾，但只写新文件、不改宿主，是 danger 后缀规则唯一的 allowlist 例外（见 `CONTRACT.md` §1）；真正改宿主的是 `migrate.apply`（`danger:true`）。
 
 ## 5. HTTP API（全部只绑 127.0.0.1）
 
@@ -133,7 +121,7 @@ curl -s -H "X-UPP-Token: $TOKEN" -H "content-type: application/json" \
  "params":{"name":"upp_action","arguments":{"action":"mem.search","params":{"query":"upp","limit":3}}}}
 ```
 
-返回 `result.content[0].text` 是 envelope JSON（`ok/data/truncated/tookMs`）。`tools/list` 的每个工具都带 `inputSchema`，但**只有两个**——这是 token 设计：31 个 action 的名字/参数通过 catalog 现查，不常住上下文。
+返回 `result.content[0].text` 是 envelope JSON（`ok/data/truncated/tookMs`）。`tools/list` 的每个工具都带 `inputSchema`，但**只有两个**——这是 token 设计：36 个 action 的名字/参数通过 catalog 现查，不常住上下文。
 
 ## 7. 安装与卸载
 
@@ -151,15 +139,16 @@ dist\uppgui.exe --uninstall --dir D:\Tools\UPPGUI
 
 | 项 | 实测 |
 |---|---|
-| MCP `tools/list` 全量响应 | **1274 B**（2 个工具，远低于 4096 B 预算） |
-| MCP `upp_catalog` 返回文本 | **2074 B**（31 个 id + 参数名 + danger） |
-| HTTP `/api/catalog`（verbose，带描述） | **11128 B**（只给 UI 用，不进模型上下文） |
-| HTTP `/api/ping` | **123 B**（含 `noAuth`/`tokenRequired`） |
+| MCP `tools/list` 全量响应 | **1348 B**（2 个工具，远低于 4096 B 预算） |
+| MCP `upp_catalog` 返回文本 | **2519 B**（36 个 id + 参数名 + danger） |
+| HTTP `/api/catalog`（verbose，带描述） | **13805 B**（只给 UI 用，不进模型上下文） |
+| HTTP `/api/ping` | **122 B**（含 `noAuth`/`tokenRequired`；pid/uptime 位数浮动 1–2 B） |
 | `mem.list` brief（13 条记录） | **1708 B**（截到 10 条，`truncated:true`） |
 | `mem.list` full（13 条记录） | **2140 B**（多 432 B，换全量） |
 | `tool.list` / `env.scan` 典型响应 | 166 B / 96 B |
+| `migrate.plan` / `migrate.card` 典型响应 | **1348 B** / **417 B**（plan 含 `steps[]` 向导） |
 
-结论：agent 侧常驻成本 = `tools/list` 1274 B；一次目录查询 2075 B；一次典型 action 响应 0.1–2 KB，brief 默认值让「列 13 条」比全量省 ~20%。catalog 的 verbose 版只服务浏览器，**不会**被塞进模型上下文。
+结论：agent 侧常驻成本 = `tools/list` 1348 B；一次目录查询 2519 B；一次典型 action 响应 0.1–2 KB，brief 默认值让「列 13 条」比全量省 ~20%。catalog 的 verbose 版只服务浏览器，**不会**被塞进模型上下文。
 
 ## 9. 安全模型
 
@@ -168,6 +157,7 @@ dist\uppgui.exe --uninstall --dir D:\Tools\UPPGUI
 - **无网络**：UI 没有 CDN、字体、图片外链（图标是内联 SVG sprite），运行期不发起任何出站请求。
 - **危险操作二次确认**：`danger:true` 的 action 在 UI 里必须先确认；HTTP/MCP 层照常执行但 envelope 带 `note:"mutating action"`，agent 应先 dry-run。
 - **可回滚 / 需确认**：`env.import` 由 `uppenv` 事务化（返回 `tx`），`env.rollback` 默认 `--last` 撤销最近一次；`mem.install{remove:true}` 反向撤销宿主挂载；`plugin.install` 走 `upp install` 自带的校验与备份；`mem.rm` 是**硬删除**（danger，UI 必须二次确认），删完重建 memory 索引。
+- **镜像完整性**：payload 哈希 + canonical zip 布局能挡住内容损坏、越界元数据和尾部追加（`migrate.card` 会报 `trailing data` 并拒绝导入）；但 zip 元数据内部的位级改动只有 ed25519 签名覆盖——`migrate.pack {sign:true}` 会对整文件写 `.sha256` + `.sig.json`，不可信传输请用签名镜像，并配合 `--require-signature` 导入。
 - **状态文件**：`~/.uppgui/last-server.json` 只存 port/token/url/pid，便于 `uppgui status` / `open` 复用实例，不存业务数据。
 
 ## 10. 已知边界

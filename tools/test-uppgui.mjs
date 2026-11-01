@@ -29,6 +29,7 @@
  */
 import assert from 'node:assert/strict'
 import { spawn, spawnSync } from 'node:child_process'
+import crypto from 'node:crypto'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
@@ -60,6 +61,14 @@ const ID_RE_ANY = /^[a-z][a-z0-9]*(\.[a-z][a-z0-9.-]*)?$/
 const BARE_IDS = new Set(['status', 'doctor'])
 const ARG_TYPES = new Set(['string', 'number', 'boolean', 'array', 'object'])
 const DESTRUCTIVE_SUFFIXES = ['.rm', '.rollback', '.import', '.pack', '.install', '.uninstall']
+// CONTRACT §1 danger rule. `migrate.pack` ends with `.pack` but only writes a NEW
+// image file and never mutates a host, so it is the single documented exemption
+// (§1 allowlist). `migrate.apply` mutates hosts yet has no destructive suffix, so
+// it is required-danger by id.
+const DANGER_EXEMPT = new Set(['migrate.pack'])
+const DANGER_REQUIRED = new Set(['migrate.apply'])
+const EXPECTED_ACTION_COUNT = 36
+const EXPECTED_GROUP_IDS = ['overview', 'memory', 'tools', 'env', 'migrate', 'plugin']
 const BRIEF_MAX_ITEMS = 10
 const TOOLS_LIST_BUDGET = 4096
 
@@ -144,6 +153,27 @@ function envFor(home, extra = {}) {
     NO_COLOR: '1',
     ...extra,
   }
+}
+
+function sha256File(file) {
+  return crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex')
+}
+
+/** Deterministic fingerprint of a directory tree: paths, sizes and content hashes. */
+function treeFingerprint(dir) {
+  const root = path.resolve(dir)
+  const rows = []
+  const walk = (current) => {
+    if (!fs.existsSync(current)) return
+    for (const name of fs.readdirSync(current).sort()) {
+      const full = path.join(current, name)
+      const stat = fs.statSync(full)
+      if (stat.isDirectory()) walk(full)
+      else rows.push(`${path.relative(root, full).replace(/\\/g, '/')}\t${stat.size}\t${sha256File(full)}`)
+    }
+  }
+  walk(root)
+  return crypto.createHash('sha256').update(rows.join('\n')).digest('hex')
 }
 
 function findPort(msg, depth = 0) {
@@ -475,6 +505,17 @@ const SAFE_PARAMS = {
   'env.inspect': { file: path.join(TMP, 'gui-smoke-missing.uppenv') },
   'env.rollback': { tx: 'gui-smoke-missing' },
   'env.tools': {},
+  'migrate.plan': { hosts: ['workbuddy'], kinds: ['skill'] },
+  'migrate.pack': {
+    out: path.join(TMP, 'gui-smoke-migrate.uppenv'),
+    hosts: ['workbuddy'],
+    kinds: ['skill'],
+    probeTools: false,
+    force: true,
+  },
+  'migrate.card': { file: path.join(TMP, 'gui-smoke-missing.uppenv') },
+  'migrate.preview': { file: path.join(TMP, 'gui-smoke-missing.uppenv') },
+  'migrate.apply': { file: path.join(TMP, 'gui-smoke-missing.uppenv') },
   'plugin.detect': {},
   'plugin.init': { id: 'gui-smoke-plugin', dir: path.join(TMP, 'gui-smoke-plugin') },
   'plugin.validate': { pkg: path.join(TMP, 'gui-smoke-missing-pkg') },
@@ -536,15 +577,24 @@ async function main() {
     assert.ok(fs.existsSync(ACTIONS_FILE), `missing ${rel(ACTIONS_FILE)}`)
     mod = await import(pathToFileURL(ACTIONS_FILE).href)
     assert.ok(Array.isArray(mod.GROUPS), 'GROUPS must be an array')
-    assert.ok(mod.GROUPS.length >= 5, `GROUPS needs >= 5 entries, got ${mod.GROUPS.length}`)
+    assert.deepEqual(
+      mod.GROUPS.map((group) => group.id),
+      EXPECTED_GROUP_IDS,
+      'GROUPS ids/order drifted from CONTRACT (overview,memory,tools,env,migrate,plugin)',
+    )
     for (const group of mod.GROUPS) {
       assert.equal(typeof group.id, 'string', 'every group needs a string id')
       assert.equal(typeof group.title, 'string', `group ${group.id} needs a title`)
     }
     assert.equal(typeof mod.ACTIONS, 'object', 'ACTIONS must be an object')
-    assert.ok(Object.keys(mod.ACTIONS).length >= 5, 'ACTIONS looks empty')
+    assert.equal(
+      Object.keys(mod.ACTIONS).length,
+      EXPECTED_ACTION_COUNT,
+      `catalog must expose ${EXPECTED_ACTION_COUNT} actions, got ${Object.keys(mod.ACTIONS).length}`,
+    )
     assert.equal(typeof mod.runAction, 'function', 'runAction must be exported')
     assert.equal(typeof mod.catalog, 'function', 'catalog must be exported')
+    assert.equal(typeof mod.createContext, 'function', 'createContext must be exported')
     catalogActions = mod.ACTIONS
   })
 
@@ -673,19 +723,32 @@ async function main() {
       return `${argCount} args`
     })
 
-    await check('catalog: destructive ids set danger:true', async () => {
-      const checked = Object.entries(mod.ACTIONS).filter(([id]) => DESTRUCTIVE_SUFFIXES.some((suffix) => id.endsWith(suffix)))
-      assert.ok(checked.length >= 3, `expected several destructive actions, got ${checked.map(([id]) => id).join(',')}`)
-      for (const [id, action] of checked) {
+    await check('catalog: danger flags (suffix rule + migrate.pack exemption)', async () => {
+      const destructive = Object.entries(mod.ACTIONS).filter(
+        ([id]) => DESTRUCTIVE_SUFFIXES.some((suffix) => id.endsWith(suffix)) && !DANGER_EXEMPT.has(id),
+      )
+      assert.ok(destructive.length >= 3, `expected several destructive actions, got ${destructive.map(([id]) => id).join(',')}`)
+      for (const [id, action] of destructive) {
         assert.equal(action.danger, true, `${id} is destructive but danger !== true`)
       }
-      return checked.map(([id]) => id).join(', ')
+      for (const id of DANGER_REQUIRED) {
+        assert.ok(mod.ACTIONS[id], `required-danger action ${id} is missing`)
+        assert.equal(mod.ACTIONS[id].danger, true, `${id} mutates hosts but danger !== true`)
+      }
+      for (const id of DANGER_EXEMPT) {
+        assert.ok(mod.ACTIONS[id], `danger allowlist references unknown action ${id}`)
+        assert.equal(mod.ACTIONS[id].danger, false, `${id} is allowlisted non-destructive but danger !== false`)
+      }
+      for (const id of ['migrate.plan', 'migrate.card', 'migrate.preview']) {
+        assert.equal(mod.ACTIONS[id]?.danger, false, `${id} must stay read-only (danger:false)`)
+      }
+      return [...destructive.map(([id]) => id), ...DANGER_REQUIRED].join(', ')
     })
 
     await check('catalog(): grouped terse catalog covers every action', async () => {
       const grouped = mod.catalog()
       assert.ok(Array.isArray(grouped), 'catalog() must return an array of groups')
-      assert.ok(grouped.length >= 5, `catalog() has ${grouped.length} groups`)
+      assert.deepEqual(grouped.map((group) => group.id), EXPECTED_GROUP_IDS, 'catalog() group ids/order drifted')
       const seen = []
       for (const group of grouped) {
         assert.equal(typeof group.id, 'string', 'group.id missing')
@@ -706,8 +769,135 @@ async function main() {
       'catalog: ids are group.action, bare only status/doctor (CONTRACT §1)',
       'catalog: every action has a known group, title and summary',
       'catalog: arg schemas use string|number|boolean|array|object',
-      'catalog: destructive ids set danger:true',
+      'catalog: danger flags (suffix rule + migrate.pack exemption)',
       'catalog(): grouped terse catalog covers every action',
+    ]) {
+      skip(label, 'actions.mjs failed to load')
+    }
+  }
+
+  // ------------------------------------------------------- migrate (v1.5.0)
+  // The 换机 wizard: plan -> pack -> card -> preview -> apply. Everything runs on a
+  // throwaway HOME under TMP; `apply` is never invoked against real hosts (it only
+  // appears in the smoke table with a nonexistent image).
+  if (mod) {
+    const MIG_HOME = path.join(TMP, 'home-migrate')
+    const MIG_OUT = path.join(TMP, 'migrate')
+    const migEnv = envFor(MIG_HOME)
+    const migCtx = mod.createContext({
+      payloadDir: ROOT,
+      mode: 'dev',
+      env: migEnv,
+      log: () => {},
+      version: mod.TOOL.version,
+    })
+    const skillDir = path.join(MIG_HOME, '.workbuddy', 'skills', 'demo-skill')
+    fs.mkdirSync(skillDir, { recursive: true })
+    fs.writeFileSync(
+      path.join(skillDir, 'SKILL.md'),
+      '---\nname: demo-skill\ndescription: gui selftest skill\n---\n# demo skill\n',
+    )
+    fs.mkdirSync(MIG_OUT, { recursive: true })
+    const image = path.join(MIG_OUT, 'gui-migrate.uppenv')
+
+    await check('migrate.plan: 5-step wizard, 5 default kinds, 3 hosts', async () => {
+      const res = await mod.runAction('migrate.plan', { hosts: ['workbuddy'], kinds: ['skill'] }, migCtx)
+      assert.equal(res.ok, true, `envelope not ok: ${JSON.stringify(res).slice(0, 400)}`)
+      const plan = res.data
+      assert.equal(plan.code, 0, `uppenv plan exited ${plan.code}: ${String(plan.stderr ?? '').slice(0, 300)}`)
+      assert.equal(plan.steps.length, 5, `wizard needs 5 steps, got ${plan.steps.length}`)
+      assert.deepEqual(
+        plan.steps.map((step) => step.n),
+        [1, 2, 3, 4, 5],
+        'wizard steps out of order',
+      )
+      assert.equal(plan.defaults.kinds.length, 5, `defaults.kinds: ${JSON.stringify(plan.defaults.kinds)}`)
+      assert.equal(plan.defaults.hosts.length, 3, `defaults.hosts: ${JSON.stringify(plan.defaults.hosts)}`)
+      assert.equal(plan.hosts.length, 3, `plan.hosts: ${JSON.stringify(plan.hosts)}`)
+      return `${plan.total} assets / ${plan.hosts.length} hosts`
+    })
+
+    await check('migrate.pack: writes the image and a matching handoff card', async () => {
+      const res = await mod.runAction(
+        'migrate.pack',
+        { out: image, hosts: ['workbuddy'], kinds: ['skill'], probeTools: false, force: true },
+        migCtx,
+      )
+      assert.equal(res.ok, true, `envelope not ok: ${JSON.stringify(res).slice(0, 400)}`)
+      assert.equal(res.data.code, 0, `pack exited ${res.data.code}: ${String(res.data.stderr ?? '').slice(0, 300)}`)
+      assert.ok(fs.existsSync(image), `pack did not write ${rel(image)}`)
+      assert.equal(res.data.handoff.sizeBytes, fs.statSync(image).size, 'handoff.sizeBytes !== file size')
+      assert.equal(res.data.handoff.sha256, sha256File(image), 'handoff.sha256 !== sha256(file)')
+      assert.equal(res.data.signature.signed, false, 'unsigned pack must report signature.signed=false')
+      return `${res.data.handoff.sizeBytes} B / ${res.data.handoff.sha256.slice(0, 12)}…`
+    })
+
+    await check('migrate.card: healthy unsigned image verifies', async () => {
+      const res = await mod.runAction('migrate.card', { file: image }, migCtx)
+      assert.equal(res.ok, true)
+      assert.equal(res.data.valid, true, `card problems: ${JSON.stringify(res.data.problems)}`)
+      assert.deepEqual(res.data.problems, [], 'healthy image must have no problems')
+      assert.equal(res.data.sha256, sha256File(image), 'card.sha256 !== sha256(file)')
+      assert.equal(res.data.signature.signed, false, 'unsigned image must report signed:false')
+      assert.ok(res.data.total >= 1, `card.total: ${res.data.total}`)
+      return `${res.data.total} assets`
+    })
+
+    await check('migrate.preview: dry-run, zero writes, counts sum to total', async () => {
+      const before = treeFingerprint(MIG_HOME)
+      const res = await mod.runAction('migrate.preview', { file: image, hosts: ['workbuddy'], kinds: ['skill'] }, migCtx)
+      assert.equal(res.ok, true)
+      assert.equal(res.data.dryRun, true, 'preview must be a dry run')
+      const sum = Object.values(res.data.counts).reduce((acc, n) => acc + n, 0)
+      assert.equal(sum, res.data.total, `counts sum ${sum} !== total ${res.data.total}`)
+      const after = treeFingerprint(MIG_HOME)
+      assert.equal(after, before, 'preview wrote into the fake home (zero-write contract broken)')
+      return `${res.data.total} rows / counts=${JSON.stringify(res.data.counts)}`
+    })
+
+    await check('migrate.card: tampered payload is rejected with problems', async () => {
+      const { readZip, writeZip } = await import(pathToFileURL(ARCHIVE_FILE).href)
+      const entries = readZip(image)
+      const asset = entries.find((entry) => /^payload\/.*\/files\/SKILL\.md$/.test(String(entry.name)))
+      assert.ok(asset, `no payload file inside ${rel(image)}: ${entries.map((entry) => entry.name).join(', ')}`)
+      const bad = path.join(MIG_OUT, 'gui-migrate-tampered.uppenv')
+      writeZip(
+        bad,
+        entries.map((entry) =>
+          entry === asset
+            ? { name: entry.name, data: Buffer.concat([entry.data, Buffer.from('\n<!-- tampered -->\n')]) }
+            : entry,
+        ),
+      )
+      const res = await mod.runAction('migrate.card', { file: bad }, migCtx)
+      assert.equal(res.ok, true, 'card must answer with an envelope even for a bad image')
+      assert.equal(res.data.valid, false, 'tampered image must be rejected')
+      assert.ok(Array.isArray(res.data.problems) && res.data.problems.length > 0, 'tampered image needs non-empty problems')
+      assert.equal(typeof res.data.hint, 'string', 'a bad image should carry a hint')
+      return `${res.data.problems.length} problems: ${res.data.problems[0]}`
+    })
+
+    await check('migrate.card: appended bytes are rejected (canonical layout)', async () => {
+      const copy = path.join(MIG_OUT, 'gui-migrate-appended.uppenv')
+      fs.copyFileSync(image, copy)
+      fs.appendFileSync(copy, Buffer.from('garbage'.repeat(8)))
+      const res = await mod.runAction('migrate.card', { file: copy }, migCtx)
+      assert.equal(res.ok, true, 'card must answer with an envelope even for an appended image')
+      assert.equal(res.data.valid, false, 'an image with trailing bytes must be rejected')
+      const problems = Array.isArray(res.data.problems) ? res.data.problems : []
+      const trailing = problems.find((problem) => /trailing data/i.test(String(problem)))
+      assert.ok(trailing, `expected a /trailing data/ problem, got ${JSON.stringify(problems)}`)
+      assert.equal(typeof res.data.hint, 'string', 'a bad image should carry a hint')
+      return `${problems.length} problems: ${trailing}`
+    })
+  } else {
+    for (const label of [
+      'migrate.plan: 5-step wizard, 5 default kinds, 3 hosts',
+      'migrate.pack: writes the image and a matching handoff card',
+      'migrate.card: healthy unsigned image verifies',
+      'migrate.preview: dry-run, zero writes, counts sum to total',
+      'migrate.card: tampered payload is rejected with problems',
+      'migrate.card: appended bytes are rejected (canonical layout)',
     ]) {
       skip(label, 'actions.mjs failed to load')
     }
@@ -789,7 +979,11 @@ async function main() {
         assert.equal(res.status, 200)
         assert.equal(res.json?.ok, true, `catalog not ok: ${truncate(res.text)}`)
         const groups = res.json?.groups
-        assert.ok(Array.isArray(groups) && groups.length >= 5, `catalog groups: ${Array.isArray(groups) ? groups.length : 'missing'}`)
+        assert.ok(
+          Array.isArray(groups) && groups.length === EXPECTED_GROUP_IDS.length,
+          `catalog groups: ${Array.isArray(groups) ? groups.length : 'missing'} (expected ${EXPECTED_GROUP_IDS.length})`,
+        )
+        assert.deepEqual(groups.map((group) => group.id), EXPECTED_GROUP_IDS, 'HTTP catalog group order drifted')
         const total = groups.reduce((acc, group) => acc + (group.actions?.length ?? 0), 0)
         if (mod) assert.equal(total, Object.keys(mod.ACTIONS).length, 'HTTP catalog must list every action')
         METRICS.catalogHttpBytes = res.bytes

@@ -1,0 +1,122 @@
+name: release
+
+# Pushing a version tag builds the GUI artifacts on a Windows runner and attaches
+# them to the GitHub Release, so nobody has to hand-upload a 105 MB exe again.
+#
+#   git tag -a upp-v1.5.0 -m "..." && git push origin upp-v1.5.0
+#
+# The gate job runs the full 18-step suite first; the release job only runs when
+# it is green. Release notes come from docs/releases/<tag>.md when that file
+# exists, otherwise from a short built-in template.
+
+on:
+  push:
+    tags:
+      - 'upp-v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing tag to (re)build and publish, e.g. upp-v1.5.0'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.event.inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  gate:
+    name: release gate
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: run the 18-step regression gate
+        run: node tests/run-all.mjs
+
+  publish:
+    name: build + publish assets
+    needs: gate
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+          fetch-depth: 0
+
+      # Node 26 ships `--build-sea` + `node:sea`, which the single-file exe needs.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '26'
+
+      - name: build payload + portable zip + setup exe
+        run: node tools/build-gui.mjs
+
+      - name: smoke the exe (version / selftest / delegated CLIs)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          .\dist\uppgui.exe --version
+          $selftest = .\dist\uppgui.exe selftest --json | ConvertFrom-Json
+          if (-not $selftest.ok) { throw "selftest failed" }
+          $selftest.checks | ForEach-Object { "{0} {1}" -f $_.check, $_.ok }
+          .\dist\uppgui.exe --cli uppenv version
+          .\dist\uppgui.exe --cli upptool version
+          .\dist\uppgui.exe --cli uppmem version
+
+      - name: collect artifact facts
+        id: facts
+        shell: pwsh
+        run: |
+          $tag = "${{ github.event.inputs.tag || github.ref_name }}"
+          "tag=$tag" >> $env:GITHUB_OUTPUT
+          Get-ChildItem dist -Filter '*upp-gui-*.zip' | ForEach-Object { "zip={0} {1}" -f $_.Name, $_.Length >> $env:GITHUB_OUTPUT }
+          Get-ChildItem dist -Filter 'UPP-GUI-Setup-*.exe' | ForEach-Object { "exe={0} {1}" -f $_.Name, $_.Length >> $env:GITHUB_OUTPUT }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: upp-gui-windows
+          if-no-files-found: error
+          path: |
+            dist/upp-gui-1*.zip
+            dist/UPP-GUI-Setup-1*.exe
+
+      - name: compose release notes
+        shell: pwsh
+        run: |
+          $tag = "${{ github.event.inputs.tag || github.ref_name }}"
+          $version = $tag -replace '^upp-v', ''
+          $src = "docs/releases/$tag.md"
+          if (-not (Test-Path $src)) { $src = "docs/releases/_template.md" }
+          Write-Host "notes source: $src (version $version)"
+          node -e "const fs=require('fs');const [version,src]=process.argv.slice(1);const t=fs.readFileSync(src,'utf8').replaceAll('{{VERSION}}',version);fs.writeFileSync('release-body.md',t);console.log('body bytes:',Buffer.byteLength(t))" $version $src
+
+      - name: publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.facts.outputs.tag }}
+          name: 'UPP ${{ steps.facts.outputs.tag }}'
+          body_path: release-body.md
+          draft: false
+          prerelease: false
+          make_latest: true
+          fail_on_unmatched_files: true
+          files: |
+            dist/upp-gui-1*.zip
+            dist/UPP-GUI-Setup-1*.exe
+
+      - name: summary
+        shell: pwsh
+        run: |
+          "### release ${{ steps.facts.outputs.tag }}" >> $env:GITHUB_STEP_SUMMARY
+          "assets:" >> $env:GITHUB_STEP_SUMMARY
+          Get-ChildItem dist -File | Where-Object { $_.Name -match 'upp-gui-1.*\.zip|UPP-GUI-Setup' } |
+            ForEach-Object { "- ``$($_.Name)`` $([math]::Round($_.Length/1MB,1)) MB" } >> $env:GITHUB_STEP_SUMMARY

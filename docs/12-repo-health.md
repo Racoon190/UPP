@@ -43,7 +43,7 @@ node tools/upp.mjs doctor
 |---|---|---|
 | `node` | ✅ v26.12.0 | 运行时 ≥ 18 即可 |
 | `cli.shim` | ✅ `~/.upp/bin/upp.cmd` | 全局 `upp` 已安装（`node tools/upp.mjs setup-cli`） |
-| `cli.version` | ✅ `1.4.0` | 已安装工具链与仓库 `tools/upp.mjs` 同版本；落后时 `upp self-update` |
+| `cli.version` | ✅ `1.5.0` | 已安装工具链与仓库 `tools/upp.mjs` 同版本；落后时 `upp self-update` |
 | `dsh.profile` | ✅ `C:\Users\Administrator\.dsh\profiles\desktop` | profile 可写、可登记 bundle |
 | `workbuddy.home` | ✅ `~/.workbuddy/skills` | 技能根存在 |
 | `accio.account` | ✅ `~/.accio/accounts/1797968970/skills` | 账号技能根存在 |
