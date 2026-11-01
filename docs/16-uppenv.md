@@ -5,7 +5,7 @@
 - 状态：**v1 已实现并真机跑通**（2026-11-01，Windows 11，Node v26.12.0）
 - 入口：`upp/tools/uppenv.mjs`（零依赖单文件 CLI）+ `upp/lib/uppenv/`（核心与三端适配器）
 - 镜像格式：`.uppenv` = 标准 ZIP（任何解压工具可查看，`manifest.json` + `payload/`）
-- 自测：`node tools/test-uppenv.mjs`（50 项）+ `node tools/test-roundtrip.mjs`（18 项，含真实导出→导入→回滚闭环）
+- 自测：`node tools/test-uppenv.mjs`（50 项）+ `node tools/test-roundtrip.mjs`（27 项，含真实导出→导入→回滚→三种冲突策略闭环）
 
 ---
 
@@ -179,14 +179,26 @@ rollback      rolled back …: restored 0, removed 8
 回滚后        假 HOME 只剩 tx 元数据（journal/result/rolled-back）
 ```
 
-`tools/test-roundtrip.mjs`（自包含、只用 `os.tmpdir()`）：源码宿主里放 1 个技能 + 1 个内联 MCP fixture server → 导出 → 导入到第二个空 HOME → 断言文件/路径/工具面 → 回滚断言全部消失。**18/18 通过**。
+`tools/test-roundtrip.mjs`（自包含、只用 `os.tmpdir()`）：源码宿主里放 1 个技能 + 1 个内联 MCP fixture server → 导出 → 导入到第二个空 HOME → 断言文件/路径/工具面 → 回滚断言全部消失 → **再导入并分别用三种冲突策略改写同一文件**。**27/27 通过**。
+
+### 4.5 冲突策略（实机验证）
+
+同一个已存在的技能文件，改过本地内容后分别导入三次：
+
+| `--on-conflict` | 计划 | 结果 |
+|---|---|---|
+| `skip` | `skip=1` | 本地编辑保留，镜像不落盘 |
+| `overwrite` | `update=1` | 本地编辑被镜像内容覆盖 |
+| `rename` | 目标目录改名为 `doc-toolkit.uppenv-bak-2026-11-01T11-48-16` | 旧树（含本地编辑）完整保留，新树写入镜像内容 |
+
+> `rename` 的语义是「把冲突目标整个挪开再装」，不是「合并」——所以旧内容永远可找回。三种策略都进同一个事务，`rollback --last` 撤销的是最后一次**成功**的导入。
 
 ---
 
 ## 5. 与 UPP 的关系
 
 - `upp` = **插件级**打包/安装协议；`uppenv` = **环境级**快照/迁移工具。两者是「文件 vs 目录」「点 vs 面」的关系，不重复。
-- `uppenv` 识别 `~/.upp/store`：托管在 store 的包标 `managedBy: upp`，导出时优先 vendored（保证离线可装）；`@upp/*` 依赖在 DSH 侧按 link 处理。
+- `uppenv` 识别 `~/.upp/store`：托管在 store 的包标 `managedBy: upp`，导出时优先 vendored（保证离线可装）；`@upp/*` 依赖在 DSH 侧按 link 处理。实测本次全量镜像 69 个资产中 **24 个是 UPP 托管的**（DSH 3 个 `@upp/*` 插件、WorkBuddy 3 技能 + 3 插件、Accio 3 技能 + 3 MCP 等），`source:'upp'` 会写进 `asset.json` 与 `manifest.json`，可追溯。
 - 建议组合用法：`upp build` 产出单插件包 → 装进 store → `uppenv export` 把「插件 + 配置 + 记忆 + 工具面」一起带走。
 - 边界：`uppenv` **不替代** `upp` 的签名/供应链校验；镜像本身目前不带签名（见 §7）。
 
@@ -218,7 +230,7 @@ rollback      rolled back …: restored 0, removed 8
 ```bash
 cd upp
 node tools/test-uppenv.mjs      # 50 项核心/适配器单测
-node tools/test-roundtrip.mjs   # 18 项真实导出→导入→回滚（只用临时目录）
+node tools/test-roundtrip.mjs   # 27 项真实导出→导入→回滚→冲突策略（只用临时目录）
 node tools/uppenv.mjs detect
 node tools/uppenv.mjs export -o ../uppenv-test/env-full.uppenv --force
 node tools/uppenv.mjs verify  ../uppenv-test/env-full.uppenv

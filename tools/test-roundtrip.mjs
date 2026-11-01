@@ -167,6 +167,29 @@ try {
   check(!fs.existsSync(skillFile), 'rollback removed the skill tree')
   check(!fs.existsSync(mcpFile), 'rollback removed the created mcp config')
   check(!fs.existsSync(snapshotFile), 'rollback removed the tool snapshot')
+
+  // ------------------------------------------------------------ conflict policies
+  const again = run(['import', IMG, '--host', 'workbuddy', '--kind', 'skill', '--yes'], DST)
+  check(again.code === 0, 're-import after rollback exits 0', again.out.slice(-500))
+
+  fs.appendFileSync(skillFile, '\nlocal edit\n')
+  const skipped = run(['import', IMG, '--host', 'workbuddy', '--kind', 'skill', '--yes', '--on-conflict', 'skip'], DST)
+  check(skipped.code === 0 && /skip=1/.test(skipped.out), '--on-conflict skip plans a skip', skipped.out.slice(-300))
+  check(fs.readFileSync(skillFile, 'utf8').includes('local edit'), '--on-conflict skip keeps the local edit')
+
+  const overwritten = run(['import', IMG, '--host', 'workbuddy', '--kind', 'skill', '--yes', '--on-conflict', 'overwrite'], DST)
+  check(overwritten.code === 0, '--on-conflict overwrite exits 0')
+  check(!fs.readFileSync(skillFile, 'utf8').includes('local edit'), '--on-conflict overwrite replaces the local edit')
+
+  fs.appendFileSync(skillFile, '\nlocal edit 2\n')
+  const renamed = run(['import', IMG, '--host', 'workbuddy', '--kind', 'skill', '--yes', '--on-conflict', 'rename'], DST)
+  check(renamed.code === 0, '--on-conflict rename exits 0', renamed.out.slice(-300))
+  const skillsDir = path.join(DST, '.workbuddy', 'skills')
+  const bakDirs = fs.readdirSync(skillsDir).filter((n) => n.includes('.uppenv-bak-'))
+  check(bakDirs.length === 1, '--on-conflict rename keeps exactly one backup tree', bakDirs.join(', '))
+  const bakFile = bakDirs[0] ? path.join(skillsDir, bakDirs[0], 'SKILL.md') : ''
+  check(Boolean(bakFile) && fs.existsSync(bakFile) && fs.readFileSync(bakFile, 'utf8').includes('local edit 2'), 'rename backup keeps the local content')
+  check(fs.readFileSync(skillFile, 'utf8').includes('round-trip fixture') && !fs.readFileSync(skillFile, 'utf8').includes('local edit 2'), 'rename installs the image content')
 } catch (err) {
   bad(`unexpected error: ${err.message}`)
 } finally {
