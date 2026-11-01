@@ -60,10 +60,17 @@ node tools/upp.mjs bundle-offline --sign --zip
 ```bash
 node tools/uppenv.mjs detect                              # 这台机器上有哪些宿主
 node tools/uppenv.mjs export -o myenv.uppenv --force      # 五类资产一把打包
+node tools/uppenv.mjs export -o myenv.uppenv --sign       # 导出并签名（ed25519，复用 upp 密钥）
 node tools/uppenv.mjs import myenv.uppenv --dry-run       # 先看计划，零写入
-node tools/uppenv.mjs import myenv.uppenv --yes           # 真装（事务化）
+node tools/uppenv.mjs import myenv.uppenv --require-signature --yes   # 只装已签名的镜像
 node tools/uppenv.mjs rollback --last                     # 装错了一键撤回
+
+# 也可以把 uppenv 当作 upp 的子命令调用（参数原样转发）
+node tools/upp.mjs env export -o myenv.uppenv --sign
+node tools/upp.mjs env verify myenv.uppenv --require-signature
 ```
+
+签名与 UPP 包共用一套 ed25519 格式（`upp-sig/1`），因此 `node tools/upp.mjs verify-signature --from myenv.uppenv --require` 可以直接验镜像。
 
 详见 [docs/16-uppenv.md](docs/16-uppenv.md)。
 

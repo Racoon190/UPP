@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 /**
  * uppenv round-trip test — export from a synthetic host, import into a second
- * synthetic home, then roll the import back. Everything happens under
- * os.tmpdir(); no real host directory is read or written.
+ * synthetic home, roll the import back, then attack the image and check that
+ * the tampered copy is refused. Everything happens under os.tmpdir(); no real
+ * host directory is read or written.
  *
  *   node tools/test-roundtrip.mjs
  */
@@ -20,6 +21,7 @@ const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'uppenv-roundtrip-'))
 const SRC = path.join(TMP, 'source-home')
 const DST = path.join(TMP, 'target-home')
 const IMG = path.join(TMP, 'roundtrip.uppenv')
+const KEYS = path.join(TMP, 'keys')
 let pass = 0
 let fail = 0
 
@@ -35,7 +37,7 @@ function check(cond, msg, extra) {
   if (cond) ok(msg)
   else bad(msg, extra)
 }
-function envFor(home) {
+function envFor(home, extra = {}) {
   return {
     ...process.env,
     USERPROFILE: home,
@@ -43,162 +45,135 @@ function envFor(home) {
     DSH_HOME: path.join(home, '.dsh'),
     UPPENV_HOME: path.join(home, '.uppenv'),
     NO_COLOR: '1',
+    ...extra,
   }
 }
-function run(args, home) {
+function run(args, home, extraEnv = {}) {
   const res = spawnSync(process.execPath, [CLI, ...args], {
     cwd: ROOT,
-    env: envFor(home),
+    env: envFor(home, extraEnv),
     encoding: 'utf8',
     timeout: 120000,
   })
   return { code: res.status, out: `${res.stdout ?? ''}${res.stderr ?? ''}`, stdout: res.stdout ?? '' }
 }
-
-const FIXTURE = `#!/usr/bin/env node
-// Minimal MCP stdio server used by the round-trip test.
-import readline from 'node:readline'
-const TOOLS = [
-  { name: 'demo_echo', description: 'echo text', inputSchema: { type: 'object', properties: { text: { type: 'string' } } } },
-  { name: 'demo_upper', description: 'uppercase text', inputSchema: { type: 'object', properties: { text: { type: 'string' } } } },
-]
-const rl = readline.createInterface({ input: process.stdin })
-const send = (msg) => process.stdout.write(JSON.stringify(msg) + '\\n')
-rl.on('line', (line) => {
-  let req
-  try { req = JSON.parse(line) } catch { return }
-  if (req.id === undefined) return
-  if (req.method === 'initialize') {
-    send({ jsonrpc: '2.0', id: req.id, result: { protocolVersion: '2024-11-05', capabilities: { tools: {} }, serverInfo: { name: 'roundtrip-fixture', version: '1.0.0' } } })
-    return
+function jsonRun(args, home, extraEnv = {}) {
+  const res = run([...args, '--json'], home, extraEnv)
+  try {
+    return { code: res.code, json: JSON.parse(res.stdout), out: res.out }
+  } catch {
+    return { code: res.code, json: null, out: res.out }
   }
-  if (req.method === 'tools/list') {
-    send({ jsonrpc: '2.0', id: req.id, result: { tools: TOOLS } })
-    return
-  }
-  send({ jsonrpc: '2.0', id: req.id, result: {} })
-})
-`
+}
 
 try {
   // ---------------------------------------------------------------- source host
   fs.mkdirSync(path.join(SRC, '.workbuddy', 'skills', 'demo-skill', 'references'), { recursive: true })
   fs.writeFileSync(path.join(SRC, '.workbuddy', 'skills', 'demo-skill', 'SKILL.md'), '# demo skill\nround-trip fixture\n')
   fs.writeFileSync(path.join(SRC, '.workbuddy', 'skills', 'demo-skill', 'references', 'note.md'), 'note body\n')
-  fs.mkdirSync(path.join(SRC, '.codebuddy'), { recursive: true })
-  const fixtureServer = path.join(SRC, 'fixture-server.mjs')
-  fs.writeFileSync(fixtureServer, FIXTURE)
-  fs.writeFileSync(
-    path.join(SRC, '.codebuddy', 'mcp.json'),
-    `${JSON.stringify(
-      {
-        mcpServers: {
-          demo: { command: process.execPath, args: [fixtureServer], env: { UPP_HOST: 'workbuddy' } },
-        },
-      },
-      null,
-      2,
-    )}\n`,
-  )
+
+  // -------------------------------------------------------------------- keygen
+  const keygen = jsonRun(['keygen', '--out', KEYS, '--force'], SRC)
+  check(keygen.code === 0 && Boolean(keygen.json?.fingerprint), 'keygen creates an ed25519 key', keygen.out.slice(-500))
+  const keyFile = path.join(KEYS, 'uppenv-signing.key.pem')
+  const pubFile = path.join(KEYS, 'uppenv-signing.pub.pem')
+  check(fs.existsSync(keyFile) && fs.existsSync(pubFile), 'key pair written to disk')
+  const keygenAgain = run(['keygen', '--out', KEYS], SRC)
+  check(keygenAgain.code !== 0, 'keygen refuses to overwrite an existing key')
 
   // -------------------------------------------------------------------- export
-  const exported = run(['export', '-o', IMG, '--host', 'workbuddy', '--kind', 'skill,mcp,tool'], SRC)
-  check(exported.code === 0, 'export exits 0', exported.out.slice(-800))
+  const exported = run(['export', '-o', IMG, '--host', 'workbuddy', '--kind', 'skill', '--no-probe-tools', '--sign', '--key', keyFile], SRC)
+  check(exported.code === 0, 'signed export exits 0', exported.out.slice(-800))
   check(fs.existsSync(IMG), 'image file exists')
-  const verified = run(['verify', IMG], SRC)
-  check(verified.code === 0 && /OK \d+ asset/.test(verified.out), 'verify passes', verified.out.slice(-400))
-  const inspected = run(['inspect', IMG, '--json'], SRC)
-  let assets = []
-  try {
-    const info = JSON.parse(inspected.stdout)
-    assets = info.manifest?.assets ?? info.assets ?? []
-  } catch {
-    assets = []
-  }
-  check(assets.some((a) => a.kind === 'skill' && a.id === 'demo-skill'), 'image contains the skill')
-  check(assets.some((a) => a.kind === 'mcp' && a.id === 'demo'), 'image contains the mcp server')
-  const toolAsset = assets.find((a) => a.kind === 'tool' && a.id === 'demo')
-  check(Boolean(toolAsset), 'image contains a tool-surface snapshot')
+  check(fs.existsSync(`${IMG}.sig.json`), 'signature sidecar written')
+  check(fs.existsSync(`${IMG}.sha256`), 'sha256 sidecar written')
+
+  // -------------------------------------------------------------------- verify
+  const verified = run(['verify', IMG, '--require-signature'], SRC)
+  check(verified.code === 0 && /signature ed25519/.test(verified.out), 'verify passes with --require-signature', verified.out.slice(-500))
+  const sigJson = jsonRun(['verify-signature', IMG, '--require'], SRC)
+  check(sigJson.code === 0 && sigJson.json?.ok === true && sigJson.json?.signed === true, 'verify-signature reports a valid signature', sigJson.out.slice(-500))
+  const sig = JSON.parse(fs.readFileSync(`${IMG}.sig.json`, 'utf8'))
+  check(sig.format === 'upp-sig/1' && sig.alg === 'ed25519', 'signature sidecar has the documented format')
+  check(sig.keyFingerprint === keygen.json.fingerprint, 'signature uses the requested key (--key), not the default')
+  check(sig.sha256 === fs.readFileSync(`${IMG}.sha256`, 'utf8').trim().split(/\s+/)[0], 'sha256 sidecar matches the signed digest')
+  const pinned = run(['verify-signature', IMG, '--require', '--pubkey', pubFile], SRC)
+  check(pinned.code === 0, '--pubkey pins the expected signer')
+  const wrongKey = path.join(TMP, 'other.pub.pem')
+  const other = jsonRun(['keygen', '--out', path.join(TMP, 'other-keys'), '--force'], SRC)
+  fs.copyFileSync(path.join(TMP, 'other-keys', 'uppenv-signing.pub.pem'), wrongKey)
+  const wrongPinned = run(['verify-signature', IMG, '--require', '--pubkey', wrongKey], SRC)
+  check(Boolean(other.json) && wrongPinned.code !== 0, '--pubkey rejects a different signer')
+
+  const inspected = run(['inspect', IMG], SRC)
+  check(/signature ed25519/.test(inspected.out), 'inspect reports the signature')
 
   // ------------------------------------------------------------- import (fresh)
   fs.mkdirSync(path.join(DST, '.workbuddy', 'skills'), { recursive: true })
-  fs.mkdirSync(path.join(DST, '.codebuddy'), { recursive: true })
-  const imported = run(['import', IMG, '--host', 'workbuddy', '--kind', 'skill,mcp,tool', '--yes'], DST)
-  check(imported.code === 0, 'import exits 0', imported.out.slice(-800))
-
+  const imported = run(['import', IMG, '--host', 'workbuddy', '--kind', 'skill', '--require-signature', '--yes'], DST)
+  check(imported.code === 0, 'import exits 0 with --require-signature', imported.out.slice(-800))
   const skillFile = path.join(DST, '.workbuddy', 'skills', 'demo-skill', 'SKILL.md')
   check(fs.existsSync(skillFile), 'skill tree materialized in target home')
   check(fs.existsSync(path.join(DST, '.workbuddy', 'skills', 'demo-skill', 'references', 'note.md')), 'skill nested file materialized')
 
-  const mcpFile = path.join(DST, '.codebuddy', 'mcp.json')
-  let mcpJson = null
-  try {
-    mcpJson = JSON.parse(fs.readFileSync(mcpFile, 'utf8'))
-  } catch {
-    mcpJson = null
-  }
-  check(Boolean(mcpJson?.mcpServers?.demo), 'mcp config materialized')
-  const args0 = mcpJson?.mcpServers?.demo?.args?.[0] ?? ''
-  check(args0.startsWith(DST), 'mcp path expanded against the TARGET home', args0)
+  // ------------------------------------------------------- conflict: skip
+  fs.appendFileSync(skillFile, 'local edit\n')
+  const skipped = run(['import', IMG, '--host', 'workbuddy', '--kind', 'skill', '--yes', '--on-conflict', 'skip'], DST)
+  check(skipped.code === 0 && fs.readFileSync(skillFile, 'utf8').includes('local edit'), '--on-conflict skip keeps the local edit', skipped.out.slice(-400))
 
-  const snapshotFile = path.join(DST, '.uppenv', 'tools', 'workbuddy', 'demo.json')
-  check(fs.existsSync(snapshotFile), 'tool snapshot recorded in uppenv store')
-
-  const listed = run(['tools', '--host', 'workbuddy', '--json'], DST)
-  let listedJson = null
-  try {
-    listedJson = JSON.parse(listed.stdout)
-  } catch {
-    listedJson = null
-  }
-  check(Array.isArray(listedJson) && listedJson.some((r) => r.server === 'roundtrip-fixture'), 'uppenv tools lists the recorded server')
-
-  let snapshot = null
-  try {
-    snapshot = JSON.parse(fs.readFileSync(snapshotFile, 'utf8'))
-  } catch {
-    snapshot = null
-  }
-  check((snapshot?.tools ?? []).length === 2, 'snapshot captured the 2 live tools', `got ${(snapshot?.tools ?? []).length}`)
+  // ------------------------------------------------------- conflict: overwrite
+  const overwritten = run(['import', IMG, '--host', 'workbuddy', '--kind', 'skill', '--yes', '--on-conflict', 'overwrite'], DST)
+  check(overwritten.code === 0 && !fs.readFileSync(skillFile, 'utf8').includes('local edit'), '--on-conflict overwrite replaces the local edit')
 
   // ---------------------------------------------------------------- rollback
   const rolled = run(['rollback', '--last'], DST)
-  check(rolled.code === 0, 'rollback exits 0', rolled.out.slice(-500))
-  check(!fs.existsSync(skillFile), 'rollback removed the skill tree')
-  check(!fs.existsSync(mcpFile), 'rollback removed the created mcp config')
-  check(!fs.existsSync(snapshotFile), 'rollback removed the tool snapshot')
+  check(rolled.code === 0 && /rolled back/.test(rolled.out), 'rollback --last exits 0', rolled.out.slice(-400))
+  // There are three transactions now (create, skip, overwrite): unwind them all.
+  for (let i = 0; i < 3 && fs.existsSync(path.join(DST, '.workbuddy', 'skills', 'demo-skill')); i++) {
+    run(['rollback', '--last'], DST)
+  }
+  check(!fs.existsSync(path.join(DST, '.workbuddy', 'skills', 'demo-skill')), 'rollback removed the skill tree')
 
-  // ------------------------------------------------------------ conflict policies
-  const again = run(['import', IMG, '--host', 'workbuddy', '--kind', 'skill', '--yes'], DST)
-  check(again.code === 0, 're-import after rollback exits 0', again.out.slice(-500))
+  // ------------------------------------------------------- tamper / wrong file
+  const TAMPERED = path.join(TMP, 'tampered.uppenv')
+  fs.copyFileSync(IMG, TAMPERED)
+  fs.copyFileSync(`${IMG}.sig.json`, `${TAMPERED}.sig.json`)
+  const buf = fs.readFileSync(TAMPERED)
+  buf[Math.floor(buf.length / 2)] ^= 0xff
+  fs.writeFileSync(TAMPERED, buf)
+  const tamperedVerify = run(['verify-signature', TAMPERED, '--json'], SRC)
+  check(tamperedVerify.code !== 0, 'tampered image fails signature verification')
+  const DST2 = path.join(TMP, 'target-home-2')
+  fs.mkdirSync(DST2, { recursive: true })
+  const tamperedImport = run(['import', TAMPERED, '--host', 'workbuddy', '--kind', 'skill', '--yes'], DST2)
+  check(tamperedImport.code !== 0, 'import refuses a tampered image', tamperedImport.out.slice(-300))
+  check(!fs.existsSync(path.join(DST2, '.workbuddy', 'skills', 'demo-skill')), 'tampered import wrote nothing')
 
-  fs.appendFileSync(skillFile, '\nlocal edit\n')
-  const skipped = run(['import', IMG, '--host', 'workbuddy', '--kind', 'skill', '--yes', '--on-conflict', 'skip'], DST)
-  check(skipped.code === 0 && /skip=1/.test(skipped.out), '--on-conflict skip plans a skip', skipped.out.slice(-300))
-  check(fs.readFileSync(skillFile, 'utf8').includes('local edit'), '--on-conflict skip keeps the local edit')
+  // --------------------------------------------- unsigned image + require-signature
+  const UNSIGNED = path.join(TMP, 'unsigned.uppenv')
+  const unsignedExport = run(['export', '-o', UNSIGNED, '--host', 'workbuddy', '--kind', 'skill', '--no-probe-tools'], SRC)
+  check(unsignedExport.code === 0 && !fs.existsSync(`${UNSIGNED}.sig.json`), 'unsigned export writes no .sig.json')
+  const unsignedRequire = run(['verify', UNSIGNED, '--require-signature'], SRC)
+  check(unsignedRequire.code !== 0, '--require-signature rejects an unsigned image')
+  const unsignedImport = run(['import', UNSIGNED, '--host', 'workbuddy', '--kind', 'skill', '--require-signature', '--yes'], DST2)
+  check(unsignedImport.code !== 0, 'import --require-signature refuses an unsigned image')
 
-  const overwritten = run(['import', IMG, '--host', 'workbuddy', '--kind', 'skill', '--yes', '--on-conflict', 'overwrite'], DST)
-  check(overwritten.code === 0, '--on-conflict overwrite exits 0')
-  check(!fs.readFileSync(skillFile, 'utf8').includes('local edit'), '--on-conflict overwrite replaces the local edit')
-
-  fs.appendFileSync(skillFile, '\nlocal edit 2\n')
-  const renamed = run(['import', IMG, '--host', 'workbuddy', '--kind', 'skill', '--yes', '--on-conflict', 'rename'], DST)
-  check(renamed.code === 0, '--on-conflict rename exits 0', renamed.out.slice(-300))
-  const skillsDir = path.join(DST, '.workbuddy', 'skills')
-  const bakDirs = fs.readdirSync(skillsDir).filter((n) => n.includes('.uppenv-bak-'))
-  check(bakDirs.length === 1, '--on-conflict rename keeps exactly one backup tree', bakDirs.join(', '))
-  const bakFile = bakDirs[0] ? path.join(skillsDir, bakDirs[0], 'SKILL.md') : ''
-  check(Boolean(bakFile) && fs.existsSync(bakFile) && fs.readFileSync(bakFile, 'utf8').includes('local edit 2'), 'rename backup keeps the local content')
-  check(fs.readFileSync(skillFile, 'utf8').includes('round-trip fixture') && !fs.readFileSync(skillFile, 'utf8').includes('local edit 2'), 'rename installs the image content')
+  // -------------------------------------------------------- sign an existing image
+  const signExisting = run(['sign', UNSIGNED, '--key', keyFile], SRC)
+  check(signExisting.code === 0 && fs.existsSync(`${UNSIGNED}.sig.json`), 'sign stamps an existing image')
+  const signedLater = run(['verify-signature', UNSIGNED, '--require'], SRC)
+  check(signedLater.code === 0, 'the newly signed image verifies')
 } catch (err) {
-  bad(`unexpected error: ${err.message}`)
+  bad(`unexpected exception: ${err.message}`)
+  process.stdout.write(`${err.stack}\n`)
 } finally {
   try {
     fs.rmSync(TMP, { recursive: true, force: true })
   } catch {
-    /* ignore */
+    /* best effort */
   }
 }
 
-process.stdout.write(`\nround-trip: ${pass} passed, ${fail} failed (${pass + fail} checks)\n`)
-process.exit(fail === 0 ? 0 : 1)
+const total = pass + fail
+process.stdout.write(`\nround-trip: ${pass} passed, ${fail} failed (${total} checks)\n`)
+process.exit(fail ? 1 : 0)

@@ -5,8 +5,12 @@
  *   uppenv detect                     show which hosts are present on this machine
  *   uppenv scan                       list every asset known to the adapters
  *   uppenv export -o env.uppenv       build a portable image from this machine
+ *                                     (--sign to attach an ed25519 signature)
  *   uppenv inspect env.uppenv         show what an image contains
- *   uppenv verify env.uppenv          check payload hashes / schema
+ *   uppenv verify env.uppenv          check payload hashes / schema / signature
+ *   uppenv sign env.uppenv            sign (or re-sign) an existing image
+ *   uppenv verify-signature env.uppenv   detached signature check only
+ *   uppenv keygen                     create an ed25519 signing key
  *   uppenv import env.uppenv          install an image (dry-run first!)
  *   uppenv rollback <txid>|--last     undo an import via its journal
  *   uppenv tx list                    recent import transactions
@@ -35,6 +39,14 @@ import {
   compareToolSurface,
 } from '../lib/uppenv/image.mjs'
 import { probeServer } from '../lib/uppenv/core/mcp-tools.mjs'
+import {
+  generateKey,
+  loadSigningKey,
+  readSignature,
+  resolveSigningKey,
+  signImage,
+  verifySignature,
+} from '../lib/uppenv/core/sign.mjs'
 
 const COLOR = process.stdout.isTTY && !process.env.NO_COLOR
 const c = {
@@ -51,9 +63,11 @@ const c = {
 const BOOLEAN = new Set([
   'json', 'force', 'dry-run', 'include-builtin', 'no-verify', 'verbose', 'last',
   'keep-dir', 'yes', 'all', 'help', 'version', 'no-color', 'no-probe-tools', 'live',
+  'sign', 'require-signature', 'require',
 ])
 const VALUED = new Set([
   'o', 'output', 'on-conflict', 'vendor', 'dsh-home', 'host', 'kind', 'id', 'profile', 'probe-timeout',
+  'key', 'pubkey', 'key-dir', 'out',
 ])
 
 function parseArgs(argv) {
@@ -107,12 +121,18 @@ ${c.bold('COMMANDS')}
   detect                      show which hosts exist on this machine (read-only)
   scan                        list exportable assets (--host, --kind, --json)
   export -o <file.uppenv>     build a portable image (--host, --kind, --id,
-                              --include-builtin, --vendor full, --no-probe-tools, --force)
+                              --include-builtin, --vendor full, --no-probe-tools, --force,
+                              --sign [--key <pem>])
   inspect <image>             show image contents (--json)
-  verify <image>              verify payload hashes and schema
+  verify <image>              verify payload hashes, schema and signature
+                              (--require-signature, --pubkey <pem>)
+  sign <image>                write <image>.sha256 + <image>.sig.json (--key <pem>)
+  verify-signature <image>    verify only the detached signature
+                              (--require, --pubkey <pem>)
+  keygen                      create an ed25519 signing key (--out <dir>, --force)
   import <image>              install an image (--dry-run recommended first)
                               --host, --kind, --id, --on-conflict skip|overwrite|rename,
-                              --no-verify, --yes
+                              --no-verify, --require-signature, --pubkey <pem>, --yes
   tools                       MCP tool surfaces recorded by imports (--host, --live)
   rollback <txid>|--last      undo an import recorded in ~/.uppenv/tx
   tx list                     recent import transactions
@@ -180,6 +200,15 @@ function printTable(rows, headers, { maxWidth = 48 } = {}) {
 
 function jsonOut(value) {
   process.stdout.write(`${JSON.stringify(value, null, 2)}\n`)
+}
+
+/** True when the path exists and is a regular file (signatures are file sidecars). */
+function isFileTarget(file) {
+  try {
+    return fs.statSync(path.resolve(String(file))).isFile()
+  } catch {
+    return false
+  }
 }
 
 function fail(msg, code = 1) {
@@ -306,8 +335,18 @@ async function cmdExport(args) {
       ctx: createContext({ options, roots: options.roots, log }),
     })
     const saved = saveImage(dir, target, { allowOverwrite: force })
-    if (flag(args, 'json', false)) return jsonOut({ file: saved.file, stats: manifest.stats, skipped: manifest.skipped })
+    let signature = null
+    if (flag(args, 'sign', false) || flag(args, 'key')) {
+      signature = signImage(target, { keyPath: flag(args, 'key'), tool: TOOL })
+      process.stderr.write(`${c.dim(`signed with ed25519 ${signature.fingerprint}`)}\n`)
+    }
+    if (flag(args, 'json', false)) {
+      return jsonOut({ file: saved.file, stats: manifest.stats, skipped: manifest.skipped, signature })
+    }
     process.stdout.write(`\n${c.green('image written')} ${target} (${bytes(saved.bytes)})\n`)
+    if (signature) {
+      process.stdout.write(`${c.green('signed')} ed25519 ${signature.fingerprint} → ${signature.signatureFile}\n`)
+    }
     printTable(
       Object.entries(manifest.stats.byKind).map(([kind, n]) => [kind, KIND_LABEL[kind] ?? '', n]),
       ['kind', 'label', 'assets'],
@@ -328,11 +367,17 @@ function cmdInspect(args) {
   const file = args.positional[0]
   if (!file) fail('inspect needs an image file')
   const info = inspectImage(file)
-  if (flag(args, 'json', false)) return jsonOut(info)
+  const signature = isFileTarget(file) ? readSignature(file) : null
+  if (flag(args, 'json', false)) return jsonOut({ ...info, signature })
   const m = info.manifest
   process.stdout.write(`${c.bold('image')} ${info.file} (${bytes(info.size)})\n`)
   process.stdout.write(`${c.dim(`schema ${m.schema} · created ${m.createdAt} · tool ${m.tool?.name} ${m.tool?.version}`)}\n`)
-  process.stdout.write(`${c.dim(`source ${m.source?.platform}/${m.source?.arch} node ${m.source?.node}`)}\n\n`)
+  process.stdout.write(`${c.dim(`source ${m.source?.platform}/${m.source?.arch} node ${m.source?.node}`)}\n`)
+  process.stdout.write(
+    signature
+      ? `${c.green('signature')} ed25519 ${signature.keyFingerprint} signed ${signature.signedAt}\n\n`
+      : `${c.dim('signature')} unsigned (no .sig.json)\n\n`,
+  )
   printTable(
     m.assets.map((a) => [a.kind, a.host, a.id, a.version ?? '', `${a.files}f`, bytes(a.bytes), a.source ?? '']),
     ['kind', 'host', 'id', 'version', 'files', 'size', 'source'],
@@ -345,9 +390,12 @@ function cmdVerify(args) {
   const file = args.positional[0]
   if (!file) fail('verify needs an image file')
   const res = verifyImage(file)
+  const requireSig = Boolean(flag(args, 'require-signature', false))
+  const sig = isFileTarget(file) ? verifySignature(file, { require: requireSig, pubkey: flag(args, 'pubkey') }) : { ok: true, signed: false, checks: [], problems: [] }
+  const ok = res.ok && sig.ok
   if (flag(args, 'json', false)) {
-    jsonOut({ ok: res.ok, checked: res.checked, problems: res.problems })
-    process.exitCode = res.ok ? 0 : 1
+    jsonOut({ ok, checked: res.checked, problems: [...res.problems, ...sig.problems], signature: sig })
+    process.exitCode = ok ? 0 : 1
     return
   }
   if (res.ok) {
@@ -355,8 +403,64 @@ function cmdVerify(args) {
   } else {
     process.stderr.write(`${c.red('FAIL')} ${res.problems.length} problem(s)\n`)
     for (const p of res.problems.slice(0, 40)) process.stderr.write(`  - ${p}\n`)
-    process.exitCode = 1
   }
+  if (sig.signed) {
+    process.stdout.write(
+      sig.ok
+        ? `${c.green('OK')} signature ed25519 ${sig.fingerprint}\n`
+        : `${c.red('FAIL')} signature invalid\n`,
+    )
+  } else {
+    process.stdout.write(`${sig.ok ? c.dim('OK signature absent (optional)') : c.red('FAIL signature missing (--require-signature)')}\n`)
+  }
+  for (const p of sig.problems) process.stderr.write(`  - ${p}\n`)
+  process.exitCode = ok ? 0 : 1
+}
+
+/** `uppenv sign <image>` — sign an existing image in place. */
+function cmdSign(args) {
+  const file = args.positional[0]
+  if (!file) fail('sign needs an image file')
+  if (!isFileTarget(file)) fail(`not a file (signatures are sidecars): ${file}`)
+  const res = signImage(file, { keyPath: flag(args, 'key'), tool: TOOL })
+  if (flag(args, 'json', false)) return jsonOut(res)
+  process.stdout.write(`${c.green('signed')} ${res.file}\n`)
+  process.stdout.write(`  ed25519 ${res.fingerprint} (key ${res.key})\n`)
+  process.stdout.write(`  ${res.sha256File}\n  ${res.signatureFile}\n`)
+}
+
+/** `uppenv verify-signature <image>` — detached signature only. */
+function cmdVerifySignature(args) {
+  const file = args.positional[0]
+  if (!file) fail('verify-signature needs an image file')
+  const res = verifySignature(file, {
+    require: Boolean(flag(args, 'require', false) || flag(args, 'require-signature', false)),
+    pubkey: flag(args, 'pubkey'),
+  })
+  if (flag(args, 'json', false)) {
+    jsonOut(res)
+    process.exitCode = res.ok ? 0 : 1
+    return
+  }
+  for (const ch of res.checks) {
+    process.stdout.write(`${ch.ok ? c.green('ok  ') : c.red('FAIL')} ${pad(ch.check, 22)} ${c.dim(String(ch.detail ?? ''))}\n`)
+  }
+  process.stdout.write(
+    res.ok
+      ? `\n${c.green(res.signed ? 'signature OK' : 'no signature (optional)')}\n`
+      : `\n${c.red('signature check failed')}\n`,
+  )
+  process.exitCode = res.ok ? 0 : 1
+}
+
+/** `uppenv keygen` — ed25519 key pair for image signatures. */
+function cmdKeygen(args) {
+  const outDir = flag(args, 'key-dir', flag(args, 'out', null))
+  const res = generateKey({ dir: outDir, force: Boolean(flag(args, 'force', false)) })
+  if (flag(args, 'json', false)) return jsonOut({ alg: 'ed25519', ...res })
+  process.stdout.write(`${c.green('key generated')} ed25519 ${res.fingerprint}\n`)
+  process.stdout.write(`  private ${res.keyFile}\n  public  ${res.pubFile}\n`)
+  process.stdout.write(c.dim('  sign images with: uppenv export -o env.uppenv --sign\n'))
 }
 
 /**
@@ -437,6 +541,14 @@ async function cmdImport(args) {
       if (flag(args, 'json', false)) jsonOut({ ok: false, problems: v.problems })
       fail(`image failed verification (${v.problems.length} problems); use --no-verify to force`)
     }
+  }
+
+  const requireSig = Boolean(flag(args, 'require-signature', false))
+  const signed = isFileTarget(abs) && Boolean(readSignature(abs))
+  if (requireSig || signed) {
+    const sig = verifySignature(abs, { require: requireSig, pubkey: flag(args, 'pubkey') })
+    if (!sig.ok) fail(`image signature rejected: ${sig.problems.join('; ')}`)
+    process.stderr.write(`${c.dim(`signature OK: ed25519 ${sig.fingerprint}`)}\n`)
   }
 
   const mat = materialize(abs)
@@ -557,7 +669,9 @@ async function renameConflicting(asset, adapter, ctx, tx) {
 
 function cmdRollback(args) {
   let id = args.positional[0]
-  if (!id && flag(args, 'last', false)) id = listTx()[0]?.id
+  // `--last` means the newest transaction that has not been rolled back yet,
+  // so repeated `rollback --last` calls unwind an import history in order.
+  if (!id && flag(args, 'last', false)) id = listTx().find((t) => !t.rolled)?.id
   if (!id) fail('rollback needs a transaction id (see: uppenv tx list) or --last')
   const txDir = path.join(txRoot(), id)
   if (!exists(txDir)) fail(`no such transaction: ${id}`)
@@ -586,7 +700,11 @@ function listTx() {
       }
       return { id: d.name, dir, result, rolled: exists(path.join(dir, 'rolled-back.json')) }
     })
-    .sort((a, b) => (a.id < b.id ? 1 : -1))
+    .sort((a, b) => {
+      // Newest first by directory mtime; the id is a tie-breaker only.
+      const diff = fs.statSync(b.dir).mtimeMs - fs.statSync(a.dir).mtimeMs
+      return diff !== 0 ? diff : a.id < b.id ? 1 : -1
+    })
 }
 
 function cmdTx(args) {
@@ -664,6 +782,12 @@ async function main() {
       return cmdInspect(args)
     case 'verify':
       return cmdVerify(args)
+    case 'sign':
+      return cmdSign(args)
+    case 'verify-signature':
+      return cmdVerifySignature(args)
+    case 'keygen':
+      return cmdKeygen(args)
     case 'import':
     case 'load':
       return cmdImport(args)

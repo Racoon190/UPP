@@ -418,11 +418,16 @@ try {
       assert.equal(tx.writeText(file, 'after\n'), false)
       assert.equal(fs.readFileSync(file, 'utf8'), 'before\n')
       assert.equal(tx.exec('node', ['--version']).skipped, true)
-      assert.throws(() => rollbackTx(tx.dir), /no journal/)
+      // No journal was created for a dry run, so rollback must be a safe no-op.
+      const res = rollbackTx(tx.dir)
+      assert.equal(res.removed, 0)
+      assert.match(res.skipped.join(' '), /no journal/)
     })
 
-    await check('rollbackTx rejects a directory without a journal', () => {
-      assert.throws(() => rollbackTx(mkdirp('txroot', 'no-journal')), /no journal/)
+    await check('rollbackTx treats a directory without a journal as a no-op', () => {
+      const res = rollbackTx(mkdirp('txroot', 'no-journal'))
+      assert.equal(res.removed, 0)
+      assert.match(res.skipped.join(' '), /no journal/)
     })
   })
 

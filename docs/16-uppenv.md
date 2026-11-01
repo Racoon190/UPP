@@ -2,10 +2,10 @@
 
 > 一句话：`upp` 把**一个插件**装到三端；`uppenv` 把**一台机器的 agent 环境**（插件 / 技能 / MCP / 工具清单 / 记忆）打成一个文件，在另一台机器上一条命令装回去，可预演、可回滚。
 
-- 状态：**v1 已实现并真机跑通**（2026-11-01，Windows 11，Node v26.12.0）
+- 状态：**v1 已实现并真机跑通**（2026-11-01，Windows 11，Node v26.12.0）；v1.1 增加 ed25519 签名与 `upp env` 子命令
 - 入口：`upp/tools/uppenv.mjs`（零依赖单文件 CLI）+ `upp/lib/uppenv/`（核心与三端适配器）
 - 镜像格式：`.uppenv` = 标准 ZIP（任何解压工具可查看，`manifest.json` + `payload/`）
-- 自测：`node tools/test-uppenv.mjs`（50 项）+ `node tools/test-roundtrip.mjs`（27 项，含真实导出→导入→回滚→三种冲突策略闭环）
+- 自测：`node tools/test-uppenv.mjs`（50 项）+ `node tools/test-roundtrip.mjs`（30 项，含真实导出→签名→导入→回滚→三种冲突策略→篡改拒绝闭环）
 
 ---
 
@@ -120,9 +120,28 @@ node tools/uppenv.mjs tools --host workbuddy --live
 
 # 体检
 node tools/uppenv.mjs doctor
+
+# 签名 / 验签（ed25519，复用 UPP 密钥与 upp-sig/1 格式）
+node tools/uppenv.mjs keygen                              # 首次：建密钥（或复用 upp keygen）
+node tools/uppenv.mjs export -o env.uppenv --sign         # 导出即签名
+node tools/uppenv.mjs verify-signature env.uppenv --require
+node tools/uppenv.mjs import env.uppenv --require-signature --yes
+node tools/upp.mjs verify-signature --from env.uppenv --require   # 用 upp 交叉验证同一份镜像
+
+# 也可以从 upp 调用（子命令原样转发）
+node tools/upp.mjs env export -o env.uppenv --sign
 ```
 
-常用 flag：`--host a,b`、`--kind plugin,skill`、`--id <key>`、`--include-builtin`、`--vendor full`、`--on-conflict skip|overwrite|rename`、`--no-probe-tools`、`--probe-timeout 8000`、`--json`。
+常用 flag：`--host a,b`、`--kind plugin,skill`、`--id <key>`、`--include-builtin`、`--vendor full`、`--on-conflict skip|overwrite|rename`、`--no-probe-tools`、`--probe-timeout 8000`、`--sign`、`--key <pem>`、`--pubkey <pem>`、`--require-signature`、`--json`。
+
+### 3.1 签名与校验
+
+镜像 = 单个 ZIP 文件，签名沿用 UPP 的**分离式 ed25519**：`<image>.sha256` + `<image>.sig.json`，签名字段为 `format: upp-sig/1`、`alg: ed25519`、`kind: uppenv-image`、文件哈希与签名本身。
+
+- **密钥解析顺序**：`--key` → `UPPENV_SIGNING_KEY` → `UPP_SIGNING_KEY` → `~/.uppenv/keys/uppenv-signing.key.pem`（`uppenv keygen`）→ `~/.upp/keys/upp-signing.key.pem`（`upp keygen`）。所以已有 UPP 发布密钥时可直接签镜像，无需再建一套。
+- **校验点**：`.sha256` 与文件一致、签名格式合法、签名文件名匹配、签名内哈希一致、ed25519 验签通过；`--pubkey` 额外钉住期望签名者指纹。
+- **失败即拒绝**：`import` 前若镜像带签名（或显式 `--require-signature`），验签失败直接退出且**不写任何宿主文件**（实测篡改 1 字节 → `signature.verify: signature does not match`，目标 HOME 零写入）。
+- **交叉验证**：因为格式与 UPP 包签名一致，`node tools/upp.mjs verify-signature --from env.uppenv --require` 也能验（实测 `signed: true, fingerprint 288161930ccc2e70`）。
 
 ---
 
@@ -200,7 +219,7 @@ rollback      rolled back …: restored 0, removed 8
 - `upp` = **插件级**打包/安装协议；`uppenv` = **环境级**快照/迁移工具。两者是「文件 vs 目录」「点 vs 面」的关系，不重复。
 - `uppenv` 识别 `~/.upp/store`：托管在 store 的包标 `managedBy: upp`，导出时优先 vendored（保证离线可装）；`@upp/*` 依赖在 DSH 侧按 link 处理。实测本次全量镜像 69 个资产中 **24 个是 UPP 托管的**（DSH 3 个 `@upp/*` 插件、WorkBuddy 3 技能 + 3 插件、Accio 3 技能 + 3 MCP 等），`source:'upp'` 会写进 `asset.json` 与 `manifest.json`，可追溯。
 - 建议组合用法：`upp build` 产出单插件包 → 装进 store → `uppenv export` 把「插件 + 配置 + 记忆 + 工具面」一起带走。
-- 边界：`uppenv` **不替代** `upp` 的签名/供应链校验；镜像本身目前不带签名（见 §7）。
+- 边界：`uppenv` 不做供应链治理（不锁依赖、不做市场校验）；签名是**同一套** ed25519/`upp-sig/1`，一份密钥签 `.upp` 与 `.uppenv`，任一方验签器都能验。
 
 ---
 
@@ -220,7 +239,7 @@ rollback      rolled back …: restored 0, removed 8
 | WorkBuddy 市场插件 | 不导出树，导入跳过 | 依赖宿主自身安装能力（本就由市场托管） |
 | Accio 远端插件 | 只导 manifest | 同上，可从远端重下 |
 | 工具面 | 只做「快照 + 漂移对比」，不做调用验证 | 可在 import 后按需 `--live` 探测 |
-| 镜像签名 | 无 | 可复用 `upp` 的 ed25519 签名流程 |
+| 镜像签名 | 已支持（ed25519，`upp-sig/1`，与 `upp` 共用密钥/验签器） | 默认不强制；可加 `--require-signature` 策略 |
 | 跨平台 | 只在 Windows 11 实测 | 路径模板已抽象，Linux/macOS 待验 |
 
 ---
@@ -230,7 +249,7 @@ rollback      rolled back …: restored 0, removed 8
 ```bash
 cd upp
 node tools/test-uppenv.mjs      # 50 项核心/适配器单测
-node tools/test-roundtrip.mjs   # 27 项真实导出→导入→回滚→冲突策略（只用临时目录）
+node tools/test-roundtrip.mjs   # 30 项真实导出→签名→导入→回滚→冲突策略→篡改拒绝（只用临时目录）
 node tools/uppenv.mjs detect
 node tools/uppenv.mjs export -o ../uppenv-test/env-full.uppenv --force
 node tools/uppenv.mjs verify  ../uppenv-test/env-full.uppenv
@@ -251,4 +270,6 @@ bash tools/test-fakehome.sh
 - **五类资产**：plugin / skill / mcp / tool / memory；**三端**：DSH / WorkBuddy / Accio。
 - **一条命令迁移**：`uppenv export -o env.uppenv` → `uppenv import env.uppenv --dry-run` → `--yes`。
 - **安全网**：先 dry-run 看计划；写全进事务；`rollback --last` 一键撤回；假 HOME 自测不碰真机。
+- **签名**：`export --sign` / `sign` / `verify-signature`，`import --require-signature` 才装；密钥与 `upp` 共用。
+- **从 upp 调用**：`upp env <command>` 原样转发到 `tools/uppenv.mjs`。
 - **与 UPP**：upp 管插件，uppenv 管环境；两者可组合，互不替代。

@@ -24,7 +24,7 @@
 1. [14-delivery-guide.md](14-delivery-guide.md) —— 三条安装路径、成本模型、边界、FAQ
 2. [13-productivity-plugin.md](13-productivity-plugin.md) —— 一个真实插件的完整案例与量化收益
 
-**换机 / 环境迁移**：[16-uppenv.md](16-uppenv.md) —— `uppenv` 环境镜像：五类资产一把导出、一条命令导入、可预演可回滚
+**换机 / 环境迁移**：[16-uppenv.md](16-uppenv.md) —— `uppenv` 环境镜像：五类资产一把导出、一条命令导入、可预演可回滚、可签名验签
 
 **P1 规划**：[07-migration-and-analyzer.md](07-migration-and-analyzer.md)（迁移器/分析器）、[08-security-and-supply-chain.md](08-security-and-supply-chain.md)（签名、供应链、回滚）
 

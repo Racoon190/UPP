@@ -19,6 +19,7 @@
  *   node tools/upp.mjs uninstall --pkg examples/hello-upp
  *   node tools/upp.mjs import  <path> [--out imports/<id>] [--analyze]
  *   node tools/upp.mjs analyze <path> [--out imports/<id>]
+ *   node tools/upp.mjs env <command> [...]   # environment images (delegates to tools/uppenv.mjs)
  *
  * Design rules:
  *  - `upp.json` is the single source of truth; every other manifest is generated.
@@ -58,7 +59,7 @@ const WB_CLI =
   'D:/Program Files/WorkBuddy/resources/app.asar.unpacked/cli/dist/codebuddy-lite-wb.mjs';
 const UPP_HOME = join(HOME, '.upp');
 const CLI_DIR = join(UPP_HOME, 'bin');
-const VERSION = '1.1.0';
+const VERSION = '1.2.0';
 const KEYS_DIR = join(UPP_HOME, 'keys');
 const SIGNING_KEY = process.env.UPP_SIGNING_KEY ?? join(KEYS_DIR, 'upp-signing.key.pem');
 const SIGNING_PUB = `${SIGNING_KEY.replace(/\.key\.pem$/, '')}.pub.pem`;
@@ -2782,7 +2783,24 @@ if (command === '--version' || command === '-v' || command === 'version') {
   case 'uninstall':
     cmdUninstall(pkg);
     break;
+  case 'env': {
+    // Delegate to the uppenv toolchain (same directory), forwarding argv verbatim.
+    const envCli = join(HERE, 'uppenv.mjs');
+    if (!existsSync(envCli)) {
+      log({ error: 'uppenv toolchain not found', expected: toPosix(envCli), hint: 'restore tools/uppenv.mjs + lib/uppenv/' });
+      process.exitCode = 1;
+      break;
+    }
+    const child = spawnSync(process.execPath, [envCli, ...argv.slice(1)], { stdio: 'inherit' });
+    if (child.error) {
+      log({ error: `uppenv failed to start: ${child.error.message}` });
+      process.exitCode = 1;
+      break;
+    }
+    process.exitCode = child.status ?? 1;
+    break;
+  }
   default:
-    log(`unknown command: ${command} (detect|init|import|analyze|validate|build|install|unpack|verify|conformance|pack|doctor|uninstall)`);
+    log(`unknown command: ${command} (detect|init|import|analyze|validate|build|install|unpack|verify|conformance|pack|doctor|uninstall|env)`);
     process.exitCode = 2;
 }
