@@ -77,7 +77,12 @@ step('log-toolkit', logTool.status === 0 && logReport?.failed === 0, `checks=${l
 // 3g. reusable tool registry (upptool) through a fake HOME
 const upptoolRun = node(join(REPO, 'tools', 'test-upptool.mjs'), []);
 const upptoolCount = /(\d+) passed, (\d+) failed/.exec(upptoolRun.stdout);
-step('upptool', upptoolRun.status === 0, `passed=${upptoolCount?.[1] ?? '?'} failed=${upptoolCount?.[2] ?? 'n/a'}`);
+const upptoolFail = /^ *FAIL.*$/m.exec(upptoolRun.stdout);
+step(
+  'upptool',
+  upptoolRun.status === 0,
+  `passed=${upptoolCount?.[1] ?? '?'} failed=${upptoolCount?.[2] ?? 'n/a'}${upptoolFail ? ` first=${upptoolFail[0].slice(0, 160)}` : ''}`,
+);
 
 // 3h. shared memory pool (uppmem): pool, hosts, MCP through a fake HOME
 const uppmemRun = node(join(REPO, 'tools', 'test-uppmem.mjs'), []);
