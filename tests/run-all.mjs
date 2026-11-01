@@ -84,6 +84,11 @@ const uppmemRun = node(join(REPO, 'tools', 'test-uppmem.mjs'), []);
 const uppmemCount = /(\d+) passed, (\d+) failed/.exec(uppmemRun.stdout);
 step('uppmem', uppmemRun.status === 0, `passed=${uppmemCount?.[1] ?? '?'} failed=${uppmemCount?.[2] ?? 'n/a'}`);
 
+// 3i. local GUI + agent bridge (uppgui): catalog invariants, HTTP, MCP budget, payload build
+const guiRun = node(join(REPO, 'tools', 'test-uppgui.mjs'), []);
+const guiCount = /(\d+) passed, (\d+) failed/.exec(guiRun.stdout);
+step('uppgui', guiRun.status === 0, `passed=${guiCount?.[1] ?? '?'} failed=${guiCount?.[2] ?? 'n/a'}`);
+
 // 4. conformance (host-independent part)
 const conf = lastJson(upp(['conformance', '--pkg', PKG]).stdout);
 step('conformance', conf?.failed === 0, `passed=${conf?.passed ?? '?'} failed=${conf?.failed ?? '?'}`);

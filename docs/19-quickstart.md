@@ -55,7 +55,7 @@ node tools/upp.mjs doctor        # 自检
 
 ```
 OK  cli.shim   C:\Users\<你>\.upp\bin\upp.cmd
-OK  cli.version 1.3.2
+OK  cli.version 1.4.0
 OK  cli.env    uppenv 1.1.0 (schema 1)
 OK  cli.tool   upptool 1.0.0 (schema upptool/1)
 OK  cli.mem    uppmem 1.0.0 (schema uppmem/1)
@@ -120,6 +120,19 @@ upp env rollback --last                        # 后悔药
 ```
 
 镜像可以签名验签，`--require-signature` 会拒绝来源不明的镜像。
+
+### 4.4 图形界面（`uppgui`，不想敲命令就用它）
+
+装完 exe 以后，桌面会有 **UPP GUI**；不想装 exe 也可以直接起本地网页：
+
+```bash
+node tools/uppgui.mjs          # 打开 http://127.0.0.1:<随机端口>/?token=...
+node tools/uppgui.mjs selftest # 第一次用先自检，全绿再往下
+```
+
+界面左侧 6 个工作区——概览 / 记忆 / 工具 / 环境镜像 / 插件 / Agent——每个按钮下面都写着**等价的 CLI 与 MCP 调用**，所以学会了界面就等于学会了命令。写入类操作（删除记忆、导入镜像、打包装插件）会先要求确认，且都可以先 dry-run。
+
+同一个界面还能被 agent 直接操作：启动 `uppgui.exe --mcp`（或 `node tools/uppgui.mjs mcp`）挂进任意 MCP 客户端，agent 只需两个工具 `upp_action` / `upp_catalog` 就能控制全部 31 个动作，工具描述总大小 1274 字节，调用默认返回精简结果——这是它省 token 的关键。
 
 ---
 

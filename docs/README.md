@@ -56,5 +56,6 @@
 | [17-upptool.md](17-upptool.md) | **upptool 可复用工具**：登记脚本/命令/批处理 → 本地直跑，去重与近似推荐，估算省下的 token |
 | [18-uppmem.md](18-uppmem.md) | **uppmem 共享记忆池**：DSH/WorkBuddy/Accio 同一份记忆，sync 托管区 + stdio MCP，LWW/幂等/dry-run |
 | [19-quickstart.md](19-quickstart.md) | **新手快速开始**：一键部署、三端共享记忆、复用工具、换机迁移、从零造三端通用插件、FAQ |
+| [20-uppgui.md](20-uppgui.md) | **uppgui 本地 GUI + agent 控制面**：双击 exe / 浏览器 / MCP 两工具共用 31 个 action，token 与 danger 确认模型，实测字节预算 |
 
 > `upp import` / `upp analyze`（构想 ③）的实现与真机验收见 [07-migration-and-analyzer.md](07-migration-and-analyzer.md) §2.5。

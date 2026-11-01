@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>UPP GUI</title>
+<!-- Static assets sit behind the same token gate as /api/*, so a plain <script src> would 401
+     in token mode. This inline boot block re-requests both assets with ?token=… when present
+     (harmless in --no-auth mode, where the bare URLs already pass). -->
+<script>
+(function () {
+  var t = new URLSearchParams(location.search).get('token');
+  var q = t ? '?token=' + encodeURIComponent(t) : '';
+  var l = document.createElement('link');
+  l.rel = 'stylesheet'; l.href = '/style.css' + q; document.head.appendChild(l);
+  function boot() {
+    var s = document.createElement('script');
+    s.src = '/app.js' + q; document.body.appendChild(s);
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();
+})();
+</script>
+</head>
+<body>
+<!-- Inline icon sprite: the only "assets" this app has (no image files, no CDN). -->
+<svg class="sprite" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+  <symbol id="i-logo" viewBox="0 0 24 24"><path d="M12 3 3 8l9 5 9-5-9-5Z"/><path d="m3 12 9 5 9-5"/><path d="m3 16 9 5 9-5"/></symbol>
+  <symbol id="i-overview" viewBox="0 0 24 24"><path d="M3.5 18a9 9 0 1 1 17 0"/><path d="m12 13.5 4.5-4.5"/><circle cx="12" cy="14.5" r="1.6"/></symbol>
+  <symbol id="i-memory" viewBox="0 0 24 24"><ellipse cx="12" cy="5.5" rx="7" ry="3"/><path d="M5 5.5v13c0 1.66 3.13 3 7 3s7-1.34 7-3v-13"/><path d="M5 12c0 1.66 3.13 3 7 3s7-1.34 7-3"/></symbol>
+  <symbol id="i-tools" viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></symbol>
+  <symbol id="i-env" viewBox="0 0 24 24"><path d="M16.5 9.4 7.5 4.21"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="M3.27 6.96 12 12.01l8.73-5.05"/><path d="M12 22.08V12"/></symbol>
+  <symbol id="i-plugin" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M9 1v3M15 1v3M9 20v3M15 20v3M20 9h3M20 14h3M1 9h3M1 14h3"/></symbol>
+  <symbol id="i-agent" viewBox="0 0 24 24"><path d="m4 17 6-6-6-6"/><path d="M12 19h8"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></symbol>
+  <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/></symbol>
+  <symbol id="i-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M10 11v6M14 11v6"/></symbol>
+  <symbol id="i-edit" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></symbol>
+  <symbol id="i-sync" viewBox="0 0 24 24"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="m6 3 14 9-14 9V3Z"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/></symbol>
+</svg>
+
+<div class="app">
+  <aside class="rail">
+    <div class="brand">
+      <div class="logo"><svg class="ic"><use href="#i-logo"/></svg></div>
+      <div><b>UPP</b><span>GUI</span></div>
+    </div>
+    <nav class="nav" id="nav" aria-label="workspaces"></nav>
+    <div class="rail-foot">
+      <div class="rail-meta"><span class="dot" id="railDot"></span><span id="railVersion">—</span></div>
+      <div class="rail-meta" id="railMeta">—</div>
+    </div>
+  </aside>
+
+  <div class="shell">
+    <header class="topbar">
+      <div class="crumb">
+        <h1 id="pageTitle">概览</h1>
+        <span class="muted" id="pageSub"></span>
+      </div>
+      <div class="topbar-right">
+        <label class="toggle" title="full: 返回完整数据（默认 brief，10 条 / 200 字符）">
+          <input type="checkbox" id="fullToggle"> full
+        </label>
+        <span class="chip" id="actionCount">— actions</span>
+        <span class="chip" id="tokenChip" title="API token（来自 URL ?token=…）">token ••••</span>
+        <button class="icon-btn" id="btnRefresh" title="刷新当前页 (R)" aria-label="刷新">
+          <svg class="ic"><use href="#i-refresh"/></svg>
+        </button>
+        <span class="status" id="serverStatus"><span class="dot" id="statusDot"></span><span class="label" id="statusText">连接中…</span></span>
+      </div>
+    </header>
+
+    <div class="banner" id="authBanner" hidden>
+      <svg class="ic"><use href="#i-alert"/></svg>
+      <span id="authMsg">Token 无效或缺失。请用 <code>uppgui open</code> 重新打开，或访问带 <code>?token=…</code> 的地址。</span>
+      <button class="mini-btn" id="authCopy" style="margin-left:auto">复制当前地址</button>
+    </div>
+
+    <main id="view" class="view" tabindex="-1"></main>
+
+    <section class="console" id="console" aria-label="日志控制台">
+      <div class="console-head">
+        <button class="chevl" id="consoleToggle" aria-expanded="true" title="展开 / 收起日志">
+          <svg class="ic"><use href="#i-chevron"/></svg>
+        </button>
+        <b>日志</b>
+        <span id="logMeta">—</span>
+        <span class="grow"></span>
+        <select id="logFilter" class="mini" title="按级别过滤">
+          <option value="all">全部</option>
+          <option value="info">info</option>
+          <option value="warn">warn</option>
+          <option value="error">error</option>
+          <option value="ui">ui</option>
+        </select>
+        <button class="mini-btn" id="logClear">清空</button>
+        <button class="mini-btn" id="logPause">暂停</button>
+      </div>
+      <div class="console-body" id="consoleBody">
+        <div class="log-empty">暂无日志 · 每 2s 轮询 /api/log</div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<dialog id="dlg" class="dialog">
+  <div class="dlg-head">
+    <h2 id="dlgTitle">编辑</h2>
+    <button class="icon-btn" id="dlgClose" aria-label="关闭"><svg class="ic"><use href="#i-x"/></svg></button>
+  </div>
+  <div class="dlg-body" id="dlgBody"></div>
+  <div class="dlg-foot" id="dlgFoot"></div>
+</dialog>
+
+<div class="toasts" id="toasts" role="status" aria-live="polite"></div>
+</body>
+</html>

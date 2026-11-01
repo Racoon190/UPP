@@ -11,8 +11,8 @@
 
 | 系统 | 操作 |
 |---|---|
-| Windows | 双击仓库根目录的 **`install.cmd`** |
-| macOS / Linux | `sh install.sh` |
+| Windows | 双击仓库根目录的 **`install.cmd`**；想用图形界面就再双击 `UPP-GUI-Setup-1.4.0.exe` |
+| macOS / Linux | `sh install.sh`（图形界面目前只出 Windows 安装包，其他平台用 `node tools/uppgui.mjs`） |
 
 它检查 Node ≥ 20 → 安装全局命令 `upp`（连同 `upp env` / `upp tool` / `upp mem` 三个子工具链）→ 跑 `upp doctor` 自检。
 之后在新终端里 `upp doctor` 全 OK 就能用；完整新手流程（部署 → 共享记忆 → 复用工具 → 换机迁移 → 从零造一个三端通用插件）见 **[docs/19-quickstart.md](docs/19-quickstart.md)**。
@@ -119,6 +119,24 @@ node tools/uppmem.mjs mcp                                  # 或作为 MCP serve
 ```
 
 详见 [docs/18-uppmem.md](docs/18-uppmem.md)。
+
+## 可视化 + Agent 控制台（`uppgui`，可选）
+
+双击 `UPP-GUI-Setup-1.4.0.exe` 安装后，桌面上会出现 **UPP GUI**：一个本地网页界面，把上面所有命令变成点按操作，并同时把它自己暴露成 MCP server 给 agent 用。
+
+```bash
+node tools/uppgui.mjs                    # 起本地服务并打开浏览器（默认带随机 token）
+node tools/uppgui.mjs selftest           # 8 秒自检：HTTP + action + MCP 一次跑完
+node tools/uppgui.mjs action status      # 任何界面操作都有等价的 CLI 一行式
+node tools/uppgui.mjs mcp                # 作为 MCP server（upp_action / upp_catalog 两个工具）
+node tools/build-gui.mjs                 # 重新打 payload + exe + 便携 zip（--skip-sea 只要 zip）
+```
+
+- **省 token**：界面每个按钮都标注等价 CLI/MCP 调用；MCP 只暴露 2 个工具（`tools/list` = 1274 B），`upp_action` 默认 brief（数组 10 条、字符串 200 字符），要看全量才传 `full:true`。agent 不必再翻文档猜命令。
+- **agent 可操作**：`uppgui --mcp` 或 `uppgui.exe --mcp` 直接挂到任意 MCP 客户端；`upp_catalog` 返回 31 个 action 的分组清单。
+- **一键自动化**：记忆增删查同步、工具注册/运行、环境镜像导出导入回滚、插件 init/validate/verify/pack/install 全部在界面里完成，写入类操作有 dry-run 与危险标记。
+
+详见 [docs/20-uppgui.md](docs/20-uppgui.md)。
 
 可选：让分析器用模型润色复刻摘要（**默认关闭**，只发 contract 元数据，不发技能正文/源码）：
 

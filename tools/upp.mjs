@@ -51,6 +51,16 @@ import { homedir } from 'node:os';
 import { basename, dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { deflateRawSync, inflateRawSync } from 'node:zlib';
+import { isSea } from 'node:sea';
+
+// True inside the packaged GUI executable: there is no `node` binary to re-exec.
+const IS_SEA = (() => {
+  try {
+    return isSea();
+  } catch {
+    return false;
+  }
+})();
 
 const HOME = homedir();
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -62,7 +72,7 @@ const WB_CLI =
   'D:/Program Files/WorkBuddy/resources/app.asar.unpacked/cli/dist/codebuddy-lite-wb.mjs';
 const UPP_HOME = join(HOME, '.upp');
 const CLI_DIR = join(UPP_HOME, 'bin');
-const VERSION = '1.3.2';
+const VERSION = '1.4.0';
 const KEYS_DIR = join(UPP_HOME, 'keys');
 const SIGNING_KEY = process.env.UPP_SIGNING_KEY ?? join(KEYS_DIR, 'upp-signing.key.pem');
 const SIGNING_PUB = `${SIGNING_KEY.replace(/\.key\.pem$/, '')}.pub.pem`;
@@ -2793,6 +2803,9 @@ function cmdImport(source, outDir, analyze, polish = false) {
   })();
 }
 
+// The dispatch lives in a function so this module has no top-level await;
+// the GUI SEA host loads payload tools with require(esm) (nodejs/node#62726).
+async function run() {
 let pkg = pkgArg();
 if (command === 'install' && flag('from')) {
   const from = flag('from');
@@ -2887,7 +2900,9 @@ if (command === '--version' || command === '-v' || command === 'version') {
       process.exitCode = 1;
       break;
     }
-    const child = spawnSync(process.execPath, [cliPath, ...argv.slice(1)], { stdio: 'inherit' });
+    const child = IS_SEA
+      ? spawnSync(process.execPath, ['--cli', toolLabel, ...argv.slice(1)], { stdio: 'inherit' })
+      : spawnSync(process.execPath, [cliPath, ...argv.slice(1)], { stdio: 'inherit' });
     if (child.error) {
       log({ error: `${toolLabel} failed to start: ${child.error.message}` });
       process.exitCode = 1;
@@ -2900,3 +2915,10 @@ if (command === '--version' || command === '-v' || command === 'version') {
     log(`unknown command: ${command} (detect|init|import|analyze|validate|build|install|unpack|verify|conformance|pack|doctor|uninstall|env|tool|mem)`);
     process.exitCode = 2;
 }
+
+}
+
+run().catch((err) => {
+  log({ error: String(err?.stack ?? err) })
+  process.exitCode = 1
+})
