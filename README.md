@@ -53,6 +53,20 @@ node tools/upp.mjs bundle-offline --sign --zip
 # dist/offline-hello-upp-1.0.0/ → 双击 install.cmd（或 sh install.sh）即可
 ```
 
+## 换机 / 环境迁移（`uppenv`，可选）
+
+`upp` 管**一个插件**；`uppenv` 管**一台机器的环境**（插件 / 技能 / MCP / 工具清单 / 记忆），产出可校验的单文件镜像：
+
+```bash
+node tools/uppenv.mjs detect                              # 这台机器上有哪些宿主
+node tools/uppenv.mjs export -o myenv.uppenv --force      # 五类资产一把打包
+node tools/uppenv.mjs import myenv.uppenv --dry-run       # 先看计划，零写入
+node tools/uppenv.mjs import myenv.uppenv --yes           # 真装（事务化）
+node tools/uppenv.mjs rollback --last                     # 装错了一键撤回
+```
+
+详见 [docs/16-uppenv.md](docs/16-uppenv.md)。
+
 可选：让分析器用模型润色复刻摘要（**默认关闭**，只发 contract 元数据，不发技能正文/源码）：
 
 ```bash
