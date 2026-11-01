@@ -23,7 +23,9 @@
 
 ### 2.1 双击 exe（普通用户）
 
-`UPP-GUI-Setup-<version>.exe` 与 `uppgui.exe` 是同一份二进制，只是名字更友好；先在便携目录里双击 `install.cmd`（或跑 `uppgui.exe --install`），开始菜单/桌面就会出现 `UPP GUI` 快捷方式。双击快捷方式：进程起在随机空闲端口，自动打开默认浏览器（URL 自带 `?token=…`）。关掉浏览器标签只是断开页面，服务仍在——退出用任务管理器结束 `uppgui.exe`，或在控制台里 Ctrl+C。
+`UPP-GUI-Setup-<version>.exe` 与 `uppgui.exe` 是同一份二进制，只是名字更友好；先在便携目录里双击 `install.cmd`（或跑 `uppgui.exe --install`），开始菜单/桌面就会出现 `UPP GUI` 快捷方式。双击快捷方式：后台起服务、自动打开默认浏览器（URL 自带 `?token=…`）。
+
+端口**固定 7799**（被占用就顺延到 7800…7808），所以书签可以长期用一个地址；再次双击只会复用已在跑的实例，不会堆出第二个。关掉浏览器标签只是断开页面，服务仍在；停止用 `upp gui stop`。
 
 ```bash
 # 无管理员、无网络的静默安装（自定义目录）
@@ -33,11 +35,15 @@ dist\uppgui.exe --install --silent --dir "%LOCALAPPDATA%\UPPGUI"
 ### 2.2 浏览器 URL（开发者）
 
 ```bash
-node tools/uppgui.mjs serve --port 0 --no-open --json
-# {"ok":true,"mode":"serve","port":64536,"token":"…","url":"http://127.0.0.1:64536/?token=…"}
+upp gui start            # 后台启动（固定端口 7799），打印带 token 的 URL
+upp gui url              # 当前实例的 URL，脚本里可直接用
+upp gui open             # 没起就起、起了就开浏览器
+upp gui stop             # 停掉后台实例（校验 ping 已停）
+upp gui status --json    # 健康检查：ok/port/url/ping/pid
+node tools/uppgui.mjs serve --port 7799 --no-open --json   # 前台跑，Ctrl+C 退出
 ```
 
-`--port 0` 让内核挑空闲端口；`--json` 只打印一行 JSON，方便脚本/CI 解析。把 `url` 贴进浏览器即可。`--no-auth` 仅用于本机自检，默认不要用。
+`--port 0` 仍然可用（让内核挑空闲端口，适合 CI）；`--json` 只打印一行 JSON。`--no-auth` 仅用于本机自检，默认不要用。
 
 ### 2.3 挂给 agent（MCP）
 

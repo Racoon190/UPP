@@ -16,6 +16,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { spawn } from 'node:child_process'
+import { isSea } from 'node:sea'
 
 import { TOOL, createContext, runAction, catalog } from '../lib/uppgui/actions.mjs'
 import { start } from '../lib/uppgui/server.mjs'
@@ -26,7 +27,7 @@ const REPO_ROOT = path.resolve(HERE, '..')
 const STATE_DIR = path.join(os.homedir(), '.uppgui')
 const STATE_FILE = path.join(STATE_DIR, 'last-server.json')
 
-const BOOLEAN = new Set(['no-open', 'no-auth', 'json', 'full', 'help', 'version', 'open', 'quiet', 'install', 'uninstall', 'silent'])
+const BOOLEAN = new Set(['no-open', 'no-auth', 'json', 'full', 'help', 'version', 'open', 'quiet', 'install', 'uninstall', 'silent', 'force'])
 const VALUED = new Set(['port', 'token', 'param', 'action', 'host', 'dir', 'p', 'payload'])
 
 function parseArgs(argv) {
@@ -110,12 +111,12 @@ function stateRead() {
   }
 }
 
-async function ping(info) {
+async function pingOnce(info, timeoutMs) {
   const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), 2500)
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
   try {
     const res = await fetch(`http://127.0.0.1:${info.port}/api/ping`, {
-      headers: { 'x-upp-token': info.token ?? '' },
+      headers: { 'x-upp-token': info.token ?? '', connection: 'close' },
       signal: controller.signal,
     })
     return { status: res.status, body: await res.json().catch(() => null) }
@@ -126,11 +127,27 @@ async function ping(info) {
   }
 }
 
+/** Ping with a couple of retries: a cold first request can lose the 2.5s race. */
+async function ping(info) {
+  let last = { status: 0, body: null, error: 'not attempted' }
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    last = await pingOnce(info, attempt === 0 ? 2500 : 4000)
+    if (last.status === 200) return last
+    await new Promise((r) => setTimeout(r, 250))
+  }
+  return last
+}
+
 const HELP = `uppgui ${TOOL.version} — visual + agent control for the UPP toolchain
 
 usage
   uppgui                        start the local GUI and open a browser
+  uppgui start [--port N] [--no-open] [--json]
+                                start in the background (survives closing the terminal)
+  uppgui stop [--json]          stop the recorded background instance
+  uppgui url [--json]           print the URL of the running instance
   uppgui serve [--port N] [--no-open] [--no-auth] [--json]
+                                run in the foreground (Ctrl-C to stop)
   uppgui action <id> [--param k=v ...] [--json] [--full]
   uppgui mcp                    stdio MCP server (upp_action, upp_catalog)
   uppgui status [--json]        ping the running instance
@@ -143,19 +160,64 @@ usage
 actions: ${Object.keys(catalog({ verbose: false }).flatMap((g) => g.actions)).length} ids — run \`uppgui catalog\` for the list.
 `
 
+const DEFAULT_PORT = Number(process.env.UPPGUI_PORT || 7799)
+const PORT_TRIES = 10
+
+function launchBrowser(url) {
+  const cmd = process.platform === 'win32' ? ['cmd', ['/c', 'start', '""', url]] : process.platform === 'darwin' ? ['open', [url]] : ['xdg-open', [url]]
+  spawn(cmd[0], cmd[1], { detached: true, stdio: 'ignore', windowsHide: true }).unref()
+}
+
+/** A recorded instance that still answers /api/ping, or null. */
+async function runningInstance() {
+  const info = stateRead()
+  if (!info?.port) return null
+  const res = await ping(info)
+  return res.status === 200 && res.body?.ok === true ? info : null
+}
+
+function isSeaHost() {
+  try {
+    return isSea()
+  } catch {
+    return false
+  }
+}
+
 async function cmdServe({ flags }) {
-  const port = flags.port === undefined || flags.port === true ? 0 : Number(flags.port)
-  const handle = await start({
-    payloadDir: flags.payload ? String(flags.payload) : REPO_ROOT,
-    port,
-    token: flags.token ? String(flags.token) : undefined,
-    noAuth: Boolean(flags['no-auth']),
-    open: Boolean(flags.open) || (!flags['no-open'] && process.stdout.isTTY),
-    mode: 'dev',
-  })
+  const reuse = flags.force ? null : await runningInstance()
+  if (reuse) {
+    out(`uppgui ${TOOL.version} already running on ${reuse.url} (pid ${reuse.pid}) — pass --force to start another`)
+    if (flags.open) launchBrowser(reuse.url)
+    return null
+  }
+
+  const wanted = flags.port !== undefined && flags.port !== true ? Number(flags.port) : DEFAULT_PORT
+  const tries = flags.port !== undefined && flags.port !== true ? 1 : PORT_TRIES
+  let handle = null
+  let lastErr = null
+  for (let i = 0; i < tries; i++) {
+    try {
+      handle = await start({
+        payloadDir: flags.payload ? String(flags.payload) : REPO_ROOT,
+        port: wanted + i,
+        token: flags.token ? String(flags.token) : undefined,
+        noAuth: Boolean(flags['no-auth']),
+        open: flags.open === true,
+        mode: 'dev',
+      })
+      break
+    } catch (err) {
+      lastErr = err
+      if (err?.code !== 'EADDRINUSE') throw err
+    }
+  }
+  if (!handle) throw new Error(`cannot bind a port in ${wanted}..${wanted + tries - 1}: ${lastErr?.message ?? lastErr}`)
+
   stateWrite({ port: handle.port, token: handle.token, url: handle.url, pid: process.pid, startedAt: new Date().toISOString() })
   if (flags.json) out(JSON.stringify({ ok: true, mode: 'serve', port: handle.port, token: handle.token, url: handle.url, payloadDir: handle.payloadDir }))
   else out(`uppgui ${TOOL.version} listening on ${handle.url}`)
+  if (flags.open) launchBrowser(handle.url)
 
   const shutdown = async () => {
     await handle.close()
@@ -165,6 +227,74 @@ async function cmdServe({ flags }) {
   process.on('SIGTERM', shutdown)
   return handle
 }
+
+/** Start the server in the background so closing the terminal keeps it alive. */
+async function cmdStart({ flags }) {
+  const reuse = await runningInstance()
+  if (reuse) {
+    out(`uppgui already running on ${reuse.url}`)
+    if (flags.open !== false) launchBrowser(reuse.url)
+    return
+  }
+  // Only pin the port when the user asked for one: otherwise let the child walk
+  // 7799..7808 so a stale instance on the default port cannot block startup.
+  const portArgs = flags.port !== undefined && flags.port !== true ? ['--port', String(flags.port)] : []
+  const argv = isSeaHost()
+    ? ['--cli', 'uppgui', 'serve', ...portArgs, '--json']
+    : [process.argv[1], 'serve', ...portArgs, '--json']
+  const child = spawn(process.execPath, argv, { detached: true, stdio: 'ignore', windowsHide: true })
+  child.unref()
+
+  const deadline = Date.now() + 20000
+  let info = null
+  while (Date.now() < deadline) {
+    await new Promise((r) => setTimeout(r, 150))
+    info = await runningInstance()
+    if (info) break
+  }
+  if (!info) throw new Error(`the background server did not answer within 20s (pid ${child.pid}) — run \`uppgui serve\` in a terminal to see why`)
+  if (flags.json) out(JSON.stringify({ ok: true, mode: 'start', reused: false, port: info.port, url: info.url, pid: info.pid }))
+  else out(`uppgui ${TOOL.version} started in the background on ${info.url} (pid ${info.pid})`)
+  if (flags.open !== false) launchBrowser(info.url)
+}
+
+async function cmdStop({ flags }) {
+  const info = stateRead()
+  if (!info?.pid) {
+    if (flags.json) out(JSON.stringify({ ok: true, stopped: false, detail: 'no recorded instance' }))
+    else out('uppgui: nothing to stop')
+    return
+  }
+  const wasUp = Boolean(await runningInstance())
+  let killed = false
+  try {
+    process.kill(info.pid)
+    killed = true
+  } catch (err) {
+    if (err?.code !== 'ESRCH') throw err
+  }
+  await new Promise((r) => setTimeout(r, 400))
+  const stillUp = Boolean(await runningInstance())
+  if (!stillUp && fs.existsSync(STATE_FILE)) fs.rmSync(STATE_FILE, { force: true })
+  const result = { ok: !stillUp, stopped: killed || wasUp, pid: info.pid, stillUp }
+  if (flags.json) out(JSON.stringify(result))
+  else out(stillUp ? `uppgui: pid ${info.pid} is still answering` : `uppgui stopped (pid ${info.pid})`)
+  process.exitCode = stillUp ? 1 : 0
+}
+
+async function cmdUrl({ flags }) {
+  const info = await runningInstance()
+  if (!info) {
+    const result = { ok: false, error: 'no running uppgui instance', hint: 'start it with `upp gui start` or `uppgui start`' }
+    if (flags.json) out(JSON.stringify(result))
+    else process.stderr.write(`uppgui: ${result.error} (${result.hint})\n`)
+    process.exitCode = 1
+    return
+  }
+  if (flags.json) out(JSON.stringify({ ok: true, url: info.url, port: info.port, pid: info.pid }))
+  else out(info.url)
+}
+
 
 async function cmdSelftest({ flags }) {
   const started = Date.now()
@@ -234,19 +364,14 @@ async function cmdStatus({ flags }) {
 }
 
 async function cmdOpen({ flags }) {
-  const info = stateRead()
-  if (info?.port) {
-    const res = await ping(info)
-    if (res.status === 200) {
-      const url = info.url
-      const cmd = process.platform === 'win32' ? ['cmd', ['/c', 'start', '""', url]] : process.platform === 'darwin' ? ['open', [url]] : ['xdg-open', [url]]
-      spawn(cmd[0], cmd[1], { detached: true, stdio: 'ignore', windowsHide: true }).unref()
-      if (flags.json) out(JSON.stringify({ ok: true, reused: true, url }))
-      else out(`opened ${url}`)
-      return
-    }
+  const info = await runningInstance()
+  if (info) {
+    launchBrowser(info.url)
+    if (flags.json) out(JSON.stringify({ ok: true, reused: true, url: info.url }))
+    else out(`opened ${info.url}`)
+    return
   }
-  await cmdServe({ flags })
+  await cmdStart({ flags: { ...flags, open: true } })
 }
 
 function cmdCatalog({ flags }) {
@@ -291,6 +416,9 @@ async function main() {
   else {
     const command = positional[0]
     if (command === 'serve') await cmdServe({ flags })
+    else if (command === 'start') await cmdStart({ flags })
+    else if (command === 'stop') await cmdStop({ flags })
+    else if (command === 'url') await cmdUrl({ flags })
     else if (command === 'mcp') {
       await startMcp({ payloadDir: REPO_ROOT, mode: 'dev', log: (m) => process.stderr.write(`${m}\n`) })
     } else if (command === 'action') await cmdAction({ positional: positional.slice(1), flags, params: parsed.params })
@@ -298,10 +426,11 @@ async function main() {
     else if (command === 'open') await cmdOpen({ flags })
     else if (command === 'catalog') cmdCatalog({ flags })
     else if (command === 'selftest') await cmdSelftest({ flags })
+    else if (command === 'version') out(JSON.stringify({ toolchain: TOOL.version, node: process.version, script: HERE }))
     else if (command && !command.startsWith('-')) {
       out(HELP)
       process.exitCode = 2
-    } else await cmdServe({ flags })
+    } else await cmdStart({ flags: { ...flags, open: flags.open !== false } })
   }
 }
 

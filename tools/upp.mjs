@@ -23,6 +23,7 @@
  *   node tools/upp.mjs import  <path> [--out imports/<id>] [--analyze]
  *   node tools/upp.mjs analyze <path> [--out imports/<id>]
  *   node tools/upp.mjs env <command> [...]   # environment images (delegates to tools/uppenv.mjs)
+ *   node tools/upp.mjs gui <command> [...]   # local GUI (delegates to tools/uppgui.mjs)
  *
  * Design rules:
  *  - `upp.json` is the single source of truth; every other manifest is generated.
@@ -72,7 +73,7 @@ const WB_CLI =
   'D:/Program Files/WorkBuddy/resources/app.asar.unpacked/cli/dist/codebuddy-lite-wb.mjs';
 const UPP_HOME = join(HOME, '.upp');
 const CLI_DIR = join(UPP_HOME, 'bin');
-const VERSION = '1.5.1';
+const VERSION = '1.5.2';
 const KEYS_DIR = join(UPP_HOME, 'keys');
 const SIGNING_KEY = process.env.UPP_SIGNING_KEY ?? join(KEYS_DIR, 'upp-signing.key.pem');
 const SIGNING_PUB = `${SIGNING_KEY.replace(/\.key\.pem$/, '')}.pub.pem`;
@@ -1583,14 +1584,16 @@ async function cmdDoctor() {
   const cliShim = join(CLI_DIR, process.platform === 'win32' ? 'upp.cmd' : 'upp');
   checks.push(existsSync(cliShim) ? ok('cli.shim', cliShim) : fail('cli.shim', 'not installed - run: node tools/upp.mjs setup-cli'));
   const installedVersion = toolchainVersion(join(CLI_DIR, 'upp.mjs'));
-  const repoVersion = toolchainVersion(join(REPO, 'tools', 'upp.mjs'));
+  // When the installed shim runs doctor there is no checkout beside it: REPO is
+  // ~/.upp, so fall back to the installed copy instead of comparing with null.
+  const repoVersion = toolchainVersion(join(REPO, 'tools', 'upp.mjs')) ?? installedVersion;
   checks.push(
     installedVersion && repoVersion && installedVersion === repoVersion
       ? ok('cli.version', installedVersion)
       : fail('cli.version', installedVersion ? `${installedVersion} != ${repoVersion} - run: upp self-update` : 'not installed - run: node tools/upp.mjs setup-cli'),
   );
   // Sub-toolchains live beside the installed CLI (~/.upp/bin/{tools,lib}); without them `upp env|tool|mem` cannot run.
-  for (const [name, command] of [['uppenv', 'env'], ['upptool', 'tool'], ['uppmem', 'mem']]) {
+  for (const [name, command] of [['uppenv', 'env'], ['upptool', 'tool'], ['uppmem', 'mem'], ['uppgui', 'gui']]) {
     const cliFile = join(CLI_DIR, 'tools', `${name}.mjs`);
     if (!existsSync(cliFile)) {
       checks.push(fail(`cli.${command}`, `missing ${cliFile} - run: upp setup-cli`));
@@ -1768,7 +1771,7 @@ function writeShims(dir) {
   return [join(dir, 'upp.cmd'), join(dir, 'upp')];
 }
 
-const SUB_TOOLCHAINS = ['uppenv', 'upptool', 'uppmem'];
+const SUB_TOOLCHAINS = ['uppenv', 'upptool', 'uppmem', 'uppgui'];
 
 /** Copy the sibling sub-toolchains + their lib/ trees next to the installed upp.mjs, so `upp env|tool|mem` work from any cwd. */
 function installSubToolchains(dir) {
@@ -1807,7 +1810,7 @@ function cmdSetupCli() {
   );
   const probeOk = probe.status === 0 && (probe.stdout ?? '').includes('"dsh"');
   const delegates = SUB_TOOLCHAINS.map((name) => {
-    const command = name === 'uppenv' ? 'env' : name === 'upptool' ? 'tool' : 'mem';
+    const command = name === 'uppenv' ? 'env' : name === 'upptool' ? 'tool' : name === 'uppgui' ? 'gui' : 'mem';
     const res = spawnSync(process.execPath, [script, command, 'version'], { encoding: 'utf8', timeout: 30000 });
     return { toolchain: name, ok: res.status === 0, version: (res.stdout ?? '').trim().split(String.fromCharCode(10)).filter(Boolean).slice(-1)[0] || null };
   });
@@ -2890,10 +2893,12 @@ if (command === '--version' || command === '-v' || command === 'version') {
     break;
   case 'env':
   case 'tool':
-  case 'mem': {
+  case 'mem':
+  case 'gui': {
     // Delegate to a sibling toolchain (same directory), forwarding argv verbatim.
-    const cliName = command === 'env' ? 'uppenv.mjs' : command === 'tool' ? 'upptool.mjs' : 'uppmem.mjs'
-    const toolLabel = command === 'env' ? 'uppenv' : command === 'tool' ? 'upptool' : 'uppmem'
+    const cliName =
+      command === 'env' ? 'uppenv.mjs' : command === 'tool' ? 'upptool.mjs' : command === 'gui' ? 'uppgui.mjs' : 'uppmem.mjs'
+    const toolLabel = command === 'env' ? 'uppenv' : command === 'tool' ? 'upptool' : command === 'gui' ? 'uppgui' : 'uppmem'
     const cliPath = [join(HERE, 'tools', cliName), join(HERE, cliName)].find((c) => existsSync(c));
     if (!cliPath) {
       log({ error: `${toolLabel} toolchain not found`, expected: toPosix(join(HERE, 'tools', cliName)), hint: `restore tools/${cliName} + lib/${toolLabel}/, then run: upp setup-cli` });
@@ -2912,7 +2917,7 @@ if (command === '--version' || command === '-v' || command === 'version') {
     break;
   }
   default:
-    log(`unknown command: ${command} (detect|init|import|analyze|validate|build|install|unpack|verify|conformance|pack|doctor|uninstall|env|tool|mem)`);
+    log(`unknown command: ${command} (detect|init|import|analyze|validate|build|install|unpack|verify|conformance|pack|doctor|uninstall|env|tool|mem|gui)`);
     process.exitCode = 2;
 }
 
