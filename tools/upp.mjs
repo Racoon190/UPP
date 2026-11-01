@@ -73,7 +73,7 @@ const WB_CLI =
   'D:/Program Files/WorkBuddy/resources/app.asar.unpacked/cli/dist/codebuddy-lite-wb.mjs';
 const UPP_HOME = join(HOME, '.upp');
 const CLI_DIR = join(UPP_HOME, 'bin');
-const VERSION = '1.5.2';
+const VERSION = '1.5.3';
 const KEYS_DIR = join(UPP_HOME, 'keys');
 const SIGNING_KEY = process.env.UPP_SIGNING_KEY ?? join(KEYS_DIR, 'upp-signing.key.pem');
 const SIGNING_PUB = `${SIGNING_KEY.replace(/\.key\.pem$/, '')}.pub.pem`;
@@ -1086,7 +1086,7 @@ async function installAccio(pkg, hosts, m, record) {
   const auth = accioGatewayAuth(hosts);
   const gateway = await probeTcp(4097);
   if (gateway && existsSync(hosts.accio.cli)) {
-    const res = spawnSync(process.execPath, [hosts.accio.cli, 'server', 'add', '--json-file', payloadPath], {
+    const res = spawnSync(NODE_BIN, [hosts.accio.cli, 'server', 'add', '--json-file', payloadPath], {
       encoding: 'utf8',
       timeout: 60000,
       env: auth?.env ?? process.env,
@@ -1095,7 +1095,7 @@ async function installAccio(pkg, hosts, m, record) {
     // Re-installing over an existing registration returns 409 "already exists";
     // the idempotent path is `server update <name> --json-file`.
     if (!auto.ok && /40[1-9]|already exists|conflict/i.test(auto.detail)) {
-      const up = spawnSync(process.execPath, [hosts.accio.cli, 'server', 'update', m.serverName, '--json-file', payloadPath], {
+      const up = spawnSync(NODE_BIN, [hosts.accio.cli, 'server', 'update', m.serverName, '--json-file', payloadPath], {
         encoding: 'utf8',
         timeout: 60000,
         env: auth?.env ?? process.env,
@@ -1103,7 +1103,7 @@ async function installAccio(pkg, hosts, m, record) {
       auto = { ok: up.status === 0, detail: `${up.stdout ?? ''}${up.stderr ?? ''}`.trim().slice(0, 500) };
     }
     if (auto.ok && auth) {
-      const t = spawnSync(process.execPath, [hosts.accio.cli, 'server', 'test', m.serverName], {
+      const t = spawnSync(NODE_BIN, [hosts.accio.cli, 'server', 'test', m.serverName], {
         encoding: 'utf8',
         timeout: 60000,
         env: auth.env,
@@ -1599,7 +1599,12 @@ async function cmdDoctor() {
       checks.push(fail(`cli.${command}`, `missing ${cliFile} - run: upp setup-cli`));
       continue;
     }
-    const res = spawnSync(process.execPath, [join(CLI_DIR, 'upp.mjs'), command, 'version'], { encoding: 'utf8', timeout: 30000 });
+    // Inside the packaged GUI this process *is* the SEA host: spawn the exe with
+    // `--cli <tool>` instead of a script path the boot would mistake for a subcommand.
+    const probe = IS_SEA
+      ? ['--cli', name, 'version']
+      : [join(CLI_DIR, 'upp.mjs'), command, 'version'];
+    const res = spawnSync(process.execPath, probe, { encoding: 'utf8', timeout: 30000 });
     checks.push(
       res.status === 0
         ? ok(`cli.${command}`, (res.stdout ?? '').trim().split(String.fromCharCode(10)).filter(Boolean).slice(-1)[0] ?? name)
@@ -1616,7 +1621,7 @@ async function cmdDoctor() {
   checks.push(hosts.workbuddy.available ? ok('workbuddy.home', hosts.workbuddy.skillsDir) : fail('workbuddy.home', 'not found'));
   checks.push(hosts.accio.available ? ok('accio.account', hosts.accio.skillsDir) : fail('accio.account', 'not found'));
   if (existsSync(hosts.workbuddy.cli)) {
-    const res = spawnSync(process.execPath, [hosts.workbuddy.cli, 'mcp', 'list'], {
+    const res = spawnSync(NODE_BIN, [hosts.workbuddy.cli, 'mcp', 'list'], {
       encoding: 'utf8',
       timeout: 30000,
       env: { ...process.env, CODEBUDDY_SKIP_GIT_BASH_CHECK: '1' },
@@ -1635,7 +1640,7 @@ async function cmdDoctor() {
   );
   const auth = accioGatewayAuth(hosts);
   if (gateway && auth && existsSync(hosts.accio.cli)) {
-    const res = spawnSync(process.execPath, [hosts.accio.cli, 'server', 'list'], {
+    const res = spawnSync(NODE_BIN, [hosts.accio.cli, 'server', 'list'], {
       encoding: 'utf8',
       timeout: 60000,
       env: auth.env,
@@ -1771,6 +1776,9 @@ function writeShims(dir) {
   return [join(dir, 'upp.cmd'), join(dir, 'upp')];
 }
 
+// Spawning helper for *other* tools' JS CLIs: a SEA host cannot run them with its own
+// executable, so fall back to `node` from PATH (override with UPP_NODE).
+const NODE_BIN = IS_SEA ? (process.env.UPP_NODE || 'node') : process.execPath;
 const SUB_TOOLCHAINS = ['uppenv', 'upptool', 'uppmem', 'uppgui'];
 
 /** Copy the sibling sub-toolchains + their lib/ trees next to the installed upp.mjs, so `upp env|tool|mem` work from any cwd. */

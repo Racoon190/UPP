@@ -11,7 +11,7 @@
 
 | 系统 | 操作 |
 |---|---|
-| Windows | 双击仓库根目录的 **`install.cmd`**；想用图形界面就再双击 `UPP-GUI-Setup-1.5.2.exe` |
+| Windows | 双击仓库根目录的 **`install.cmd`**；想用图形界面就再双击 `UPP-GUI-Setup-1.5.3.exe` |
 | macOS / Linux | `sh install.sh`（图形界面目前只出 Windows 安装包，其他平台用 `node tools/uppgui.mjs`） |
 
 它检查 Node ≥ 20 → 安装全局命令 `upp`（连同 `upp env` / `upp tool` / `upp mem` 三个子工具链）→ 跑 `upp doctor` 自检。
@@ -122,7 +122,7 @@ node tools/uppmem.mjs mcp                                  # 或作为 MCP serve
 
 ## 可视化 + Agent 控制台（`uppgui`，可选）
 
-双击 `UPP-GUI-Setup-1.5.2.exe` 安装后，桌面上会出现 **UPP GUI**：一个本地网页界面，把上面所有命令变成点按操作，并同时把它自己暴露成 MCP server 给 agent 用。
+双击 `UPP-GUI-Setup-1.5.3.exe` 安装后，桌面上会出现 **UPP GUI**：一个本地网页界面，把上面所有命令变成点按操作，并同时把它自己暴露成 MCP server 给 agent 用。
 
 ```bash
 upp gui start                            # 后台起服务（固定 7799），打印带 token 的 URL
@@ -150,7 +150,7 @@ node tools/build-gui.mjs                 # 重新打 payload + exe + 便携 zip�
 推一个版本 tag 就会自动构建并发布安装包，不再手动传 105 MB：
 
 ```bash
-git tag -a upp-v1.5.2 -m "UPP 1.5.2" && git push origin upp-v1.5.2
+git tag -a upp-v1.5.3 -m "UPP 1.5.3" && git push origin upp-v1.5.3
 ```
 
 `.github/workflows/release.yml` 在 `windows-latest` 上先跑完整 18 步门槛，再用 `node tools/build-gui.mjs` 出 exe/便携包，冒烟 `--version`/`selftest`/`--cli` 后挂到对应 Release；Release 说明来自 `docs/releases/<tag>.md`（缺省用 `docs/releases/_template.md`）。手动重跑：Actions → release → Run workflow，填 tag 即可。

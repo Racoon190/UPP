@@ -24,6 +24,7 @@ import { startMcp } from '../lib/uppgui/mcp.mjs'
 
 const HERE = path.dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = path.resolve(HERE, '..')
+const MODE = isSeaHost() ? 'sea' : 'dev'
 const STATE_DIR = path.join(os.homedir(), '.uppgui')
 const STATE_FILE = path.join(STATE_DIR, 'last-server.json')
 
@@ -185,7 +186,10 @@ function isSeaHost() {
 }
 
 async function cmdServe({ flags }) {
-  const reuse = flags.force ? null : await runningInstance()
+  // Reuse only when the caller did not ask for a specific port: `serve --port 7811`
+  // means "this instance on 7811", not "whatever is already up".
+  const wantsPort = Number.isInteger(flags.port) && flags.port > 0
+  const reuse = flags.force || wantsPort ? null : await runningInstance()
   if (reuse) {
     out(`uppgui ${TOOL.version} already running on ${reuse.url} (pid ${reuse.pid}) — pass --force to start another`)
     if (flags.open) launchBrowser(reuse.url)
@@ -204,7 +208,7 @@ async function cmdServe({ flags }) {
         token: flags.token ? String(flags.token) : undefined,
         noAuth: Boolean(flags['no-auth']),
         open: flags.open === true,
-        mode: 'dev',
+        mode: MODE,
       })
       break
     } catch (err) {
@@ -301,7 +305,7 @@ async function cmdSelftest({ flags }) {
   const checks = []
   let handle = null
   try {
-    handle = await start({ payloadDir: REPO_ROOT, port: 0, noAuth: true, open: false, mode: 'dev' })
+    handle = await start({ payloadDir: REPO_ROOT, port: 0, noAuth: true, open: false, mode: MODE })
     const base = `http://127.0.0.1:${handle.port}`
     const pingRes = await fetch(`${base}/api/ping`).then((r) => r.json())
     checks.push({ check: 'ping', ok: pingRes.ok === true && pingRes.app === 'uppgui' })
@@ -336,7 +340,7 @@ async function cmdAction({ positional, flags, params }) {
   const id = positional[0]
   if (!id) fail('action needs an id, e.g. `uppgui action mem.list`')
   if (flags.full) params.full = true
-  const ctx = createContext({ payloadDir: REPO_ROOT, mode: 'dev' })
+  const ctx = createContext({ payloadDir: REPO_ROOT, mode: MODE })
   const envelope = await runAction(id, params, ctx)
   if (flags.json) out(JSON.stringify(envelope))
   else if (envelope.ok) out(JSON.stringify(envelope.data, null, 2))

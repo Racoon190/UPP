@@ -55,7 +55,7 @@ node tools/upp.mjs doctor        # 自检
 
 ```
 OK  cli.shim   C:\Users\<你>\.upp\bin\upp.cmd
-OK  cli.version 1.5.2
+OK  cli.version 1.5.3
 OK  cli.env    uppenv 1.1.0 (schema 1)
 OK  cli.tool   upptool 1.0.0 (schema upptool/1)
 OK  cli.mem    uppmem 1.0.0 (schema uppmem/1)

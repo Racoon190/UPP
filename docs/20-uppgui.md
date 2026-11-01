@@ -169,8 +169,8 @@ dist\uppgui.exe --uninstall --dir D:\Tools\UPPGUI
 ## 10. 已知边界
 
 - **ESM / SEA**：payload 是一张 ESM 图，SEA 宿主用 `require(esm)` 加载，图里不能有 top-level await（`tools/uppgui.mjs` 因此把启动逻辑放进 `main()`）；`build-gui --skip-sea` 只打 `payload.zip`，用于快速验证。
-- **端口占用**：默认 `--port 0` 由内核挑空闲端口；手工指定被占用时启动失败并打印原因，`uppgui status` 可看最近实例的端口是否还活着。
+- **端口**：默认固定 `7799`（`UPPGUI_PORT` 可改），被占时顺延到 7808；已有实例在跑就直接复用并打印它的 URL，`--force` 才另起。显式 `--port N` 表示「就要这个实例」，不会被复用逻辑接管。
 - **杀软误报**：单文件 SEA exe 未签名，Windows SmartScreen/部分杀软会拦首次运行；需手动「仍要运行」或加排除目录。
-- **brief 截断**：默认 10 条 / 200 字符，看全量要 `full:true`；日志环形缓冲只保留 500 条，更早的日志要查各工具自己的日志文件。
+- **brief 截断**：默认 10 条 / 200 字符，看全量要 `full:true`；`doctor` 例外（`brief:false`），体检表永远给全 13 行，否则失败项会被数组上限挡掉。日志环形缓冲只保留 500 条。
 - **单实例状态**：多个 `serve` 会互相覆盖 `last-server.json`，`open`/`status` 以最后一次为准；需要多实例请显式指定 `--port` 和 `--token`。
 - **UI 是薄壳**：没有框架、没有构建步骤，页面能力完全由 catalog 决定；新增 action 只要在 `actions.mjs` 注册，UI 自动出现入口，但复杂交互（如批量编辑）仍要回到 CLI。
