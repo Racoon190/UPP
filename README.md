@@ -74,6 +74,35 @@ node tools/upp.mjs env verify myenv.uppenv --require-signature
 
 详见 [docs/16-uppenv.md](docs/16-uppenv.md)。
 
+## 重复劳动 → 本地工具（`upptool`，可选）
+
+同一个脚本不再让模型重写第二遍：登记一次，之后本地直接跑，省 token：
+
+```bash
+node tools/upptool.mjs add ./sheet-to-csv.mjs --name sheet-to-csv --tag xlsx,csv
+node tools/upptool.mjs suggest "把表格转成 csv"     # 先看有没有现成的
+node tools/upptool.mjs run sheet-to-csv -- book.xlsx book.csv
+node tools/upptool.mjs batch jobs.json              # 批处理
+node tools/upptool.mjs stats                        # 运行次数 / 估算省下的 token
+node tools/upp.mjs tool list                        # 也可以走 upp 子命令
+```
+
+详见 [docs/17-upptool.md](docs/17-upptool.md)。
+
+## 三端共享记忆（`uppmem`，可选）
+
+DSH / WorkBuddy / Accio 共用一个记忆池 `~/.uppmem`，原生记忆文件通过 sync 双向同步：
+
+```bash
+node tools/uppmem.mjs add "用户偏好中文回答" --kind preference --tag lang
+node tools/uppmem.mjs search "语言"
+node tools/uppmem.mjs sync --host workbuddy,accio --both   # 拉取原生记忆 + 回写托管区
+node tools/uppmem.mjs install --host dsh                   # 给 DSH 装 upp-memory 技能
+node tools/uppmem.mjs mcp                                  # 或作为 MCP server 挂给任意宿主
+```
+
+详见 [docs/18-uppmem.md](docs/18-uppmem.md)。
+
 可选：让分析器用模型润色复刻摘要（**默认关闭**，只发 contract 元数据，不发技能正文/源码）：
 
 ```bash
@@ -124,7 +153,7 @@ upp/
   tests/mcp-smoke.mjs   # 独立 MCP 握手 + CLI parity 测试（不依赖宿主）
   tests/import.test.mjs # 4 个合成插件 fixtures 的 import→validate→build→smoke 矩阵
   tests/polish.test.mjs # 可选 LLM 润色的离线 mock 测试（默认不调用、strict 会失败）
-  tests/run-all.mjs     # 发版门槛：15 步全链路（规范/协议/导入/润色/DSH UI/生产力插件×3/签名/篡改/离线包/全局 CLI）
+  tests/run-all.mjs     # 发版门槛：17 步全链路（规范/协议/导入/润色/DSH UI/生产力插件×3/签名/篡改/离线包/全局 CLI）
   fixtures/             # dsh/claude/workbuddy/accio 四种最小来源包，供 import 回归
   examples/doc-toolkit/   # 生产力插件：本地解析 docx/xlsx/pptx/pdf/csv/html（digest + 窗口 extract）
   examples/sheet-toolkit/ # 团队插件：xlsx/csv 概览、清洗、分组汇总
@@ -168,8 +197,8 @@ upp/
 
 - **声明一次，三端原生**：`prompts[]` 在 WorkBuddy 编译为 `commands/*.md`，在 DSH 镜像为技能；`agents[]` 在 WorkBuddy 是原生 agent、Accio 是 `subAgents[]` + `subagents/<id>/prompt.md` 双确认、DSH 降级为技能镜像；`i18n`/`recommend` 写进 Accio `resources/` 与清单。
 - **WorkBuddy 零点击插件安装**：写本地目录市场 `~/.workbuddy/plugins/marketplaces/upp-local` + `known_marketplaces.json` + `installed_plugins.json` + `settings.enabledPlugins`，等价于"添加市场→安装"两步。
-- **分发加固**：`.upp` 自带 `.sha256`；`pack --sign` 出 ed25519 签名，`install --from` 自动校验、`--require-signature` 拒绝未签名；`bundle-offline` 一键离线包（双击安装，无需仓库/npm/网络）；`tests/run-all.mjs` 15 步发版门槛（含"篡改 1 字节必须被拒"与全局 CLI 自举）。详见 [docs/06-toolchain.md](docs/06-toolchain.md) §7 / [docs/08-security-and-supply-chain.md](docs/08-security-and-supply-chain.md) §6。
-- **实测**：`validate` 42 项 / `verify` 28 项 / `conformance --hosts` 70 项全绿；`tests/run-all.mjs` 15 步全过；DSH 技能目录实时出现镜像；Accio 自动注册 `connected` 且 `server tools` 看到工具。详见 [docs/11-p1-mapping.md](docs/11-p1-mapping.md) 与 [docs/12-repo-health.md](docs/12-repo-health.md)。
+- **分发加固**：`.upp` 自带 `.sha256`；`pack --sign` 出 ed25519 签名，`install --from` 自动校验、`--require-signature` 拒绝未签名；`bundle-offline` 一键离线包（双击安装，无需仓库/npm/网络）；`tests/run-all.mjs` 17 步发版门槛（含"篡改 1 字节必须被拒"与全局 CLI 自举）。详见 [docs/06-toolchain.md](docs/06-toolchain.md) §7 / [docs/08-security-and-supply-chain.md](docs/08-security-and-supply-chain.md) §6。
+- **实测**：`validate` 42 项 / `verify` 28 项 / `conformance --hosts` 70 项全绿；`tests/run-all.mjs` 17 步全过；DSH 技能目录实时出现镜像；Accio 自动注册 `connected` 且 `server tools` 看到工具。详见 [docs/11-p1-mapping.md](docs/11-p1-mapping.md) 与 [docs/12-repo-health.md](docs/12-repo-health.md)。
 - **可追溯基线**：`main` 首次提交 `119f5a7`，标签 `upp-v1.0.0`；`upp doctor` 9 项（含 `cli.shim`/`cli.version`；宿主未启动时 `accio.gateway` 预期失败）。
 - **可选 LLM 润色**：`analyze --polish`（默认关闭）把复刻摘要/工具描述润色为中文并写 `contract.json.llm`，工具描述先按契约名过滤、**不改** Schema；离线 mock 测试 9 项全绿；数据外发边界见 [08](docs/08-security-and-supply-chain.md) §4.5。
 - **UI 面板（P1.4）**：`upp.json.ui` → 生成含 Accio `renderers` frontmatter 的面板技能 + 单文件 `app/index.html` + slot 脚本；三端都作为技能安装（DSH 技能目录实测可见），Accio 真正渲染需一次应用内会话。边界见 [06](docs/06-toolchain.md) §6.6。

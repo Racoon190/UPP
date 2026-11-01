@@ -293,10 +293,11 @@ node tools/verify-in-app.mjs --pkg ~/.upp/store/hello-upp/1.0.0
 - run: node tests/run-all.mjs
 ```
 
-`tests/run-all.mjs` 聚合 15 步：`validate`、`build --check`、`mcp-smoke`（7 项）、`import` fixtures（4 个合成插件）、DSH UI 包静态检查（14 项）、生产力插件 doc-toolkit（40 项：docx/xlsx/csv/html/pdf/pptx 摘要 + 文本/行/slide 窗口 + 错误码 + tokenBudget）、sheet-toolkit（55 项：概览/清洗/分组汇总/边界/输出上限）、log-toolkit（47 项：扫描/grep/窗口/坏正则/输出上限）、全局 CLI 自举（14 项：shim + `self-update` 升级/备份/降级拒绝/同版本 no-op）、
+`tests/run-all.mjs` 聚合 17 步：`validate`、`build --check`、`mcp-smoke`（7 项）、`import` fixtures（4 个合成插件）、DSH UI 包静态检查（14 项）、生产力插件 doc-toolkit（40 项：docx/xlsx/csv/html/pdf/pptx 摘要 + 文本/行/slide 窗口 + 错误码 + tokenBudget）、sheet-toolkit（55 项：概览/清洗/分组汇总/边界/输出上限）、log-toolkit（47 项：扫描/grep/窗口/坏正则/输出上限）、全局 CLI 自举（14 项：shim + `self-update` 升级/备份/降级拒绝/同版本 no-op）、
 `analyze-polish`（离线 mock，9 项断言）、`conformance`（30 项）、`pack-sign`、`verify-signature`、
-`tamper-detected`（改 1 字节必须被拒）、`offline-bundle`。
-本机 Node 26 实测 **15/15 步通过**；同一份脚本可在 Windows / macOS / Linux 运行（无 shell 方言依赖）。
+`tamper-detected`（改 1 字节必须被拒）、`offline-bundle`、
+`upptool`（22 项：注册/判重/运行/退出码/批处理/导出导入/统计/doctor）、`uppmem`（28 项：池/检索/去重/build/导出导入/三宿主 dry-run 零写入/托管区幂等/MCP 往返）。
+本机 Node 26 实测 **17/17 步通过**；同一份脚本可在 Windows / macOS / Linux 运行（无 shell 方言依赖）。
 
 本地等价：`node tests/run-all.mjs`；只跑 import 矩阵：`node tests/import.test.mjs`；只跑 LLM 润色：`node tests/polish.test.mjs`；只跑生产力插件：`node tests/doc-toolkit.test.mjs`。
 新增来源格式时，把最小样例加到 `fixtures/`，`import.test.mjs` 自动纳入。

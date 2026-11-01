@@ -43,7 +43,7 @@ node tools/upp.mjs doctor
 |---|---|---|
 | `node` | ✅ v26.12.0 | 运行时 ≥ 18 即可 |
 | `cli.shim` | ✅ `~/.upp/bin/upp.cmd` | 全局 `upp` 已安装（`node tools/upp.mjs setup-cli`） |
-| `cli.version` | ✅ `1.2.0` | 已安装工具链与仓库 `tools/upp.mjs` 同版本；落后时 `upp self-update` |
+| `cli.version` | ✅ `1.3.0` | 已安装工具链与仓库 `tools/upp.mjs` 同版本；落后时 `upp self-update` |
 | `dsh.profile` | ✅ `C:\Users\Administrator\.dsh\profiles\desktop` | profile 可写、可登记 bundle |
 | `workbuddy.home` | ✅ `~/.workbuddy/skills` | 技能根存在 |
 | `accio.account` | ✅ `~/.accio/accounts/1797968970/skills` | 账号技能根存在 |
@@ -58,13 +58,13 @@ node tools/upp.mjs doctor
 ```bash
 node tools/upp.mjs validate --pkg examples/hello-upp        # 42 checks
 node tools/upp.mjs build --pkg examples/hello-upp --check   # 零漂移
-node tests/run-all.mjs                                      # 15 步全绿
+node tests/run-all.mjs                                      # 17 步全绿
 node tools/upp.mjs conformance --pkg examples/hello-upp --hosts dsh,workbuddy,accio   # 70 checks
 node tools/upp.mjs verify --pkg examples/hello-upp          # 28 checks（可加 --hosts dsh 只看单端）
 node tools/upp.mjs pack --pkg examples/hello-upp --out dist/hello-upp-1.0.0.upp
 ```
 
-最近一次结果：`run-all 15/15`、`conformance 70 passed / 0 failed`、`verify 28 / 0 failed`。
+最近一次结果：`run-all 17/17`、`conformance 70 passed / 0 failed`、`verify 28 / 0 failed`。
 
 全局 CLI：`node tools/upp.mjs setup-cli` → `~/.upp/bin/upp.cmd`（Windows 用户 PATH 已追加）；新终端里 `upp detect` 可直接跑，`upp install --from <x.upp> --hosts ...` 即"一条命令安装"。
 

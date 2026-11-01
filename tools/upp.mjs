@@ -14,6 +14,9 @@
  *   node tools/upp.mjs bundle-offline --pkg examples/hello-upp [--out dist] [--sign] [--zip]
  *   node tools/upp.mjs setup-cli [--prefix <dir>] [--no-path]
  *   node tools/upp.mjs self-update [--from <upp.mjs|dir>] [--prefix <dir>] [--force]
+ *   node tools/upp.mjs env  <command>   # environment images (uppenv)
+ *   node tools/upp.mjs tool <command>   # reusable local tools (upptool)
+ *   node tools/upp.mjs mem  <command>   # shared agent memory (uppmem)
  *   node tools/upp.mjs --version
  *   node tools/upp.mjs doctor
  *   node tools/upp.mjs uninstall --pkg examples/hello-upp
@@ -59,7 +62,7 @@ const WB_CLI =
   'D:/Program Files/WorkBuddy/resources/app.asar.unpacked/cli/dist/codebuddy-lite-wb.mjs';
 const UPP_HOME = join(HOME, '.upp');
 const CLI_DIR = join(UPP_HOME, 'bin');
-const VERSION = '1.2.0';
+const VERSION = '1.3.0';
 const KEYS_DIR = join(UPP_HOME, 'keys');
 const SIGNING_KEY = process.env.UPP_SIGNING_KEY ?? join(KEYS_DIR, 'upp-signing.key.pem');
 const SIGNING_PUB = `${SIGNING_KEY.replace(/\.key\.pem$/, '')}.pub.pem`;
@@ -2783,17 +2786,21 @@ if (command === '--version' || command === '-v' || command === 'version') {
   case 'uninstall':
     cmdUninstall(pkg);
     break;
-  case 'env': {
-    // Delegate to the uppenv toolchain (same directory), forwarding argv verbatim.
-    const envCli = join(HERE, 'uppenv.mjs');
-    if (!existsSync(envCli)) {
-      log({ error: 'uppenv toolchain not found', expected: toPosix(envCli), hint: 'restore tools/uppenv.mjs + lib/uppenv/' });
+  case 'env':
+  case 'tool':
+  case 'mem': {
+    // Delegate to a sibling toolchain (same directory), forwarding argv verbatim.
+    const cliName = command === 'env' ? 'uppenv.mjs' : command === 'tool' ? 'upptool.mjs' : 'uppmem.mjs'
+    const toolLabel = command === 'env' ? 'uppenv' : command === 'tool' ? 'upptool' : 'uppmem'
+    const cliPath = join(HERE, cliName);
+    if (!existsSync(cliPath)) {
+      log({ error: `${toolLabel} toolchain not found`, expected: toPosix(cliPath), hint: `restore tools/${cliName} + lib/${toolLabel}/` });
       process.exitCode = 1;
       break;
     }
-    const child = spawnSync(process.execPath, [envCli, ...argv.slice(1)], { stdio: 'inherit' });
+    const child = spawnSync(process.execPath, [cliPath, ...argv.slice(1)], { stdio: 'inherit' });
     if (child.error) {
-      log({ error: `uppenv failed to start: ${child.error.message}` });
+      log({ error: `${toolLabel} failed to start: ${child.error.message}` });
       process.exitCode = 1;
       break;
     }
@@ -2801,6 +2808,6 @@ if (command === '--version' || command === '-v' || command === 'version') {
     break;
   }
   default:
-    log(`unknown command: ${command} (detect|init|import|analyze|validate|build|install|unpack|verify|conformance|pack|doctor|uninstall|env)`);
+    log(`unknown command: ${command} (detect|init|import|analyze|validate|build|install|unpack|verify|conformance|pack|doctor|uninstall|env|tool|mem)`);
     process.exitCode = 2;
 }

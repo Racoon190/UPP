@@ -83,5 +83,5 @@ node tools/upp.mjs install --pkg examples/sheet-toolkit --hosts dsh,workbuddy,ac
 node tools/upp.mjs install --pkg examples/log-toolkit   --hosts dsh,workbuddy,accio
 node tools/upp.mjs verify  --pkg examples/sheet-toolkit --hosts dsh,workbuddy,accio
 node tools/upp.mjs verify  --pkg examples/log-toolkit   --hosts dsh,workbuddy,accio
-node tests/run-all.mjs                # 15 步发版门槛
+node tests/run-all.mjs                # 17 步发版门槛
 ```

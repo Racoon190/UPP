@@ -138,7 +138,7 @@ CLI 通道（`node runtime/server.mjs --cli digest --json '{...}'`）返回同�
 
 ```bash
 node tests/doc-toolkit.test.mjs        # 40 项：七格式 digest + 四类窗口（文本/行/slide）+ 错误码 + tokenBudget
-node tests/run-all.mjs                 # 15 步发布门（第 7 步就是本插件）
+node tests/run-all.mjs                 # 17 步发布门（第 7 步就是本插件）
 node tools/upp.mjs verify --pkg examples/doc-toolkit --hosts dsh,workbuddy,accio
 ```
 

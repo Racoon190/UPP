@@ -74,6 +74,16 @@ const logTool = node(join(HERE, 'log-toolkit.test.mjs'), []);
 const logReport = lastJson(logTool.stdout);
 step('log-toolkit', logTool.status === 0 && logReport?.failed === 0, `checks=${logReport?.passed ?? '?'} failed=${logReport?.failed ?? 'n/a'}`);
 
+// 3g. reusable tool registry (upptool) through a fake HOME
+const upptoolRun = node(join(REPO, 'tools', 'test-upptool.mjs'), []);
+const upptoolCount = /(\d+) passed, (\d+) failed/.exec(upptoolRun.stdout);
+step('upptool', upptoolRun.status === 0, `passed=${upptoolCount?.[1] ?? '?'} failed=${upptoolCount?.[2] ?? 'n/a'}`);
+
+// 3h. shared memory pool (uppmem): pool, hosts, MCP through a fake HOME
+const uppmemRun = node(join(REPO, 'tools', 'test-uppmem.mjs'), []);
+const uppmemCount = /(\d+) passed, (\d+) failed/.exec(uppmemRun.stdout);
+step('uppmem', uppmemRun.status === 0, `passed=${uppmemCount?.[1] ?? '?'} failed=${uppmemCount?.[2] ?? 'n/a'}`);
+
 // 4. conformance (host-independent part)
 const conf = lastJson(upp(['conformance', '--pkg', PKG]).stdout);
 step('conformance', conf?.failed === 0, `passed=${conf?.passed ?? '?'} failed=${conf?.failed ?? '?'}`);

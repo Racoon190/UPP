@@ -156,7 +156,7 @@ upp uninstall --pkg examples/doc-toolkit --hosts dsh,workbuddy,accio
 
 ## 11. 支持与追溯
 
-- 仓库：私有 `Racoon190/UPP`，main 绿色 CI（ubuntu/windows × node 20/22，15 步发布门）；
-- 回归：`node tests/run-all.mjs` → 15/15；`upp verify` 28 项；`conformance` 44 项；
+- 仓库：私有 `Racoon190/UPP`，main 绿色 CI（ubuntu/windows × node 20/22，17 步发布门）；
+- 回归：`node tests/run-all.mjs` → 17/17；`upp verify` 28 项；`conformance` 44 项；
 - 版本与清理口径：[12-repo-health.md](12-repo-health.md)；
 - 本手册对应的实测记录：[09-poc-report.md](09-poc-report.md)、[11-p1-mapping.md](11-p1-mapping.md)、[13-productivity-plugin.md](13-productivity-plugin.md)。

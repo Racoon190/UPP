@@ -26,6 +26,8 @@
 
 **换机 / 环境迁移**：[16-uppenv.md](16-uppenv.md) —— `uppenv` 环境镜像：五类资产一把导出、一条命令导入、可预演可回滚、可签名验签
 
+**省 token 与共享记忆**：[17-upptool.md](17-upptool.md)（可复用工具注册表，重复劳动本地直跑）、[18-uppmem.md](18-uppmem.md)（三端共享记忆池 + MCP）
+
 **P1 规划**：[07-migration-and-analyzer.md](07-migration-and-analyzer.md)（迁移器/分析器）、[08-security-and-supply-chain.md](08-security-and-supply-chain.md)（签名、供应链、回滚）
 
 ## 全部文档
@@ -49,5 +51,7 @@
 | [15-team-plugins.md](15-team-plugins.md) | 团队高频插件 sheet-toolkit / log-toolkit：同一模板复制、契约与实测 |
 | [14-delivery-guide.md](14-delivery-guide.md) | **交付手册（团队/用户版）**：安装、开发、迁移、分发、落点、FAQ |
 | [16-uppenv.md](16-uppenv.md) | **uppenv 环境镜像**：三端 插件/技能/MCP/工具/记忆 的 Docker 式 export/import/rollback、真机数据、边界 |
+| [17-upptool.md](17-upptool.md) | **upptool 可复用工具**：登记脚本/命令/批处理 → 本地直跑，去重与近似推荐，估算省下的 token |
+| [18-uppmem.md](18-uppmem.md) | **uppmem 共享记忆池**：DSH/WorkBuddy/Accio 同一份记忆，sync 托管区 + stdio MCP，LWW/幂等/dry-run |
 
 > `upp import` / `upp analyze`（构想 ③）的实现与真机验收见 [07-migration-and-analyzer.md](07-migration-and-analyzer.md) §2.5。
