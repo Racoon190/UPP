@@ -143,7 +143,7 @@ node tools/uppenv.mjs export -o ../uppenv-test/env-full.uppenv --force
 → 309.0 KB, 69 assets
 
 kind     assets            明细
-plugin   42                 dsh 14（含 @upp/* 3、@local/* 2、本地 link 1）+ workbuddy 15 + accio 13
+plugin   42                 dsh 15（含 @upp/* 3、@local/* 2、本地 link 1）+ workbuddy 14 + accio 13
 skill    11                 dsh 3 + workbuddy 4 + accio 4
 mcp      7                  workbuddy 3 + accio 4（含 1 个 remote）
 memory   2                  workbuddy `_memory.md` + accio `global-memory/PROFILE.md`
